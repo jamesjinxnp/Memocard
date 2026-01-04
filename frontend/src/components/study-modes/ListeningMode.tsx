@@ -1,0 +1,320 @@
+import { useState, useEffect } from 'react';
+import { speakWord, speakSentence } from '../../services/audio';
+
+interface Vocabulary {
+    id: number;
+    word: string;
+    defTh?: string;
+    defEn?: string;
+    type?: string;
+    ipaUs?: string;
+    example?: string;
+}
+
+interface ListeningModeProps {
+    vocabulary: Vocabulary;
+    onRate: (rating: number) => void;
+}
+
+export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps) {
+    const [showAnswer, setShowAnswer] = useState(false);
+    const [playCount, setPlayCount] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+
+    useEffect(() => {
+        setShowAnswer(false);
+        setPlayCount(0);
+        // Auto-play on new card
+        handlePlay();
+    }, [vocabulary.id]);
+
+    const handlePlay = async (slow = false) => {
+        setIsPlaying(true);
+        try {
+            await speakWord(vocabulary.word, slow);
+            setPlayCount((c) => c + 1);
+        } finally {
+            setIsPlaying(false);
+        }
+    };
+
+    const handlePlayExample = async () => {
+        if (vocabulary.example) {
+            setIsPlaying(true);
+            try {
+                await speakSentence(vocabulary.example);
+            } finally {
+                setIsPlaying(false);
+            }
+        }
+    };
+
+    const handleReveal = () => {
+        setShowAnswer(true);
+        speakWord(vocabulary.word);
+    };
+
+    return (
+        <div className="listening-mode">
+            {/* Audio Player Card */}
+            <div className="audio-card">
+                <div className="audio-icon">🎧</div>
+                <h2>ฟังและจำคำศัพท์</h2>
+
+                <div className="play-buttons">
+                    <button
+                        className="play-btn normal"
+                        onClick={() => handlePlay(false)}
+                        disabled={isPlaying}
+                    >
+                        🔊 เล่น
+                    </button>
+                    <button
+                        className="play-btn slow"
+                        onClick={() => handlePlay(true)}
+                        disabled={isPlaying}
+                    >
+                        🐢 เล่นช้า
+                    </button>
+                </div>
+
+                <p className="play-count">เล่นแล้ว {playCount} ครั้ง</p>
+
+                {!showAnswer && (
+                    <button className="reveal-btn" onClick={handleReveal}>
+                        แสดงคำตอบ
+                    </button>
+                )}
+            </div>
+
+            {/* Answer Display */}
+            {showAnswer && (
+                <div className="answer-card">
+                    <h1 className="word">{vocabulary.word}</h1>
+
+                    {vocabulary.ipaUs && (
+                        <p className="ipa">/{vocabulary.ipaUs}/</p>
+                    )}
+
+                    {vocabulary.type && (
+                        <span className="type-badge">{vocabulary.type}</span>
+                    )}
+
+                    {vocabulary.defEn && (
+                        <p className="def-en">{vocabulary.defEn}</p>
+                    )}
+
+                    {vocabulary.defTh && (
+                        <p className="def-th">{vocabulary.defTh}</p>
+                    )}
+
+                    {vocabulary.example && (
+                        <div className="example-section">
+                            <p className="example">{vocabulary.example}</p>
+                            <button
+                                className="example-play"
+                                onClick={handlePlayExample}
+                                disabled={isPlaying}
+                            >
+                                🔊 ฟังตัวอย่าง
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Rating Buttons */}
+                    <div className="rating-buttons">
+                        <button className="rating-btn again" onClick={() => onRate(1)}>
+                            Again
+                        </button>
+                        <button className="rating-btn hard" onClick={() => onRate(2)}>
+                            Hard
+                        </button>
+                        <button className="rating-btn good" onClick={() => onRate(3)}>
+                            Good
+                        </button>
+                        <button className="rating-btn easy" onClick={() => onRate(4)}>
+                            Easy
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+        .listening-mode {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2rem;
+          padding: 2rem;
+          max-width: 500px;
+          margin: 0 auto;
+        }
+
+        .audio-card {
+          background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+          color: white;
+          padding: 2rem;
+          border-radius: 16px;
+          text-align: center;
+          width: 100%;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .audio-icon {
+          font-size: 4rem;
+          margin-bottom: 1rem;
+        }
+
+        .audio-card h2 {
+          margin-bottom: 1.5rem;
+        }
+
+        .play-buttons {
+          display: flex;
+          gap: 1rem;
+          justify-content: center;
+          margin-bottom: 1rem;
+        }
+
+        .play-btn {
+          padding: 1rem 1.5rem;
+          border: none;
+          border-radius: 12px;
+          font-size: 1rem;
+          cursor: pointer;
+          transition: transform 0.2s;
+        }
+
+        .play-btn:disabled {
+          opacity: 0.6;
+        }
+
+        .play-btn:not(:disabled):hover {
+          transform: scale(1.05);
+        }
+
+        .play-btn.normal {
+          background: white;
+          color: #f5576c;
+        }
+
+        .play-btn.slow {
+          background: rgba(255,255,255,0.2);
+          color: white;
+        }
+
+        .play-count {
+          font-size: 0.9rem;
+          opacity: 0.8;
+          margin-bottom: 1.5rem;
+        }
+
+        .reveal-btn {
+          padding: 1rem 2rem;
+          background: rgba(255,255,255,0.2);
+          border: 2px solid white;
+          border-radius: 12px;
+          color: white;
+          font-size: 1rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .reveal-btn:hover {
+          background: rgba(255,255,255,0.3);
+        }
+
+        .answer-card {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 2rem;
+          border-radius: 16px;
+          text-align: center;
+          width: 100%;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .word {
+          font-size: 2.5rem;
+          font-weight: 700;
+          margin-bottom: 0.5rem;
+        }
+
+        .ipa {
+          font-size: 1.2rem;
+          opacity: 0.9;
+          font-family: serif;
+          margin-bottom: 0.5rem;
+        }
+
+        .type-badge {
+          display: inline-block;
+          background: rgba(255,255,255,0.2);
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.85rem;
+          margin-bottom: 1rem;
+        }
+
+        .def-en {
+          font-size: 1.1rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .def-th {
+          font-size: 1rem;
+          opacity: 0.9;
+        }
+
+        .example-section {
+          margin-top: 1.5rem;
+          padding-top: 1rem;
+          border-top: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .example {
+          font-style: italic;
+          font-size: 0.95rem;
+          opacity: 0.9;
+          margin-bottom: 0.5rem;
+        }
+
+        .example-play {
+          padding: 0.5rem 1rem;
+          background: rgba(255,255,255,0.2);
+          border: none;
+          border-radius: 8px;
+          color: white;
+          cursor: pointer;
+        }
+
+        .rating-buttons {
+          display: flex;
+          gap: 0.5rem;
+          margin-top: 1.5rem;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        .rating-btn {
+          padding: 0.75rem 1.25rem;
+          border: none;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.2s;
+        }
+
+        .rating-btn:hover {
+          transform: translateY(-2px);
+        }
+
+        .rating-btn.again { background: #ef4444; color: white; }
+        .rating-btn.hard { background: #f97316; color: white; }
+        .rating-btn.good { background: #22c55e; color: white; }
+        .rating-btn.easy { background: #3b82f6; color: white; }
+      `}</style>
+        </div>
+    );
+}
