@@ -1,153 +1,167 @@
-import { Hono } from 'hono';
-import { zValidator } from '@hono/zod-validator';
-import { z } from 'zod';
+import { Elysia, t } from 'elysia';
 import bcrypt from 'bcryptjs';
 import { nanoid } from '../utils/nanoid';
 import { db } from '../db/client';
 import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
-import { generateToken, authMiddleware, getCurrentUser } from '../middleware/auth';
+import { generateToken, getUserFromHeader, JWTPayload } from '../middleware/auth';
 
-const auth = new Hono();
+const auth = new Elysia({ prefix: '/auth' })
+    .derive(({ headers }) => {
+        const user = getUserFromHeader(headers);
+        return { user };
+    })
 
-// Validation schemas
-const registerSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(6),
-    name: z.string().optional(),
-});
+    // ==================== REGISTER ====================
+    .post('/register', async ({ body, set }) => {
+        const { email, password, name } = body;
 
-const loginSchema = z.object({
-    email: z.string().email(),
-    password: z.string(),
-});
+        // Check if user already exists
+        const existingUser = await db.query.users.findFirst({
+            where: eq(users.email, email),
+        });
 
-// ==================== REGISTER ====================
-auth.post('/register', zValidator('json', registerSchema), async (c) => {
-    const { email, password, name } = c.req.valid('json');
+        if (existingUser) {
+            set.status = 400;
+            return { error: 'Email already registered' };
+        }
 
-    // Check if user already exists
-    const existingUser = await db.query.users.findFirst({
-        where: eq(users.email, email),
-    });
+        // Hash password
+        const passwordHash = await bcrypt.hash(password, 10);
 
-    if (existingUser) {
-        return c.json({ error: 'Email already registered' }, 400);
-    }
+        // Create user
+        const userId = nanoid();
+        const now = new Date();
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
+        await db.insert(users).values({
+            id: userId,
+            email,
+            passwordHash,
+            name,
+            createdAt: now,
+        });
 
-    // Create user
-    const userId = nanoid();
-    const now = new Date();
+        // Generate token
+        const token = generateToken({ userId, email });
 
-    await db.insert(users).values({
-        id: userId,
-        email,
-        passwordHash,
-        name,
-        createdAt: now,
-    });
-
-    // Generate token
-    const token = generateToken({ userId, email });
-
-    return c.json({
-        message: 'User registered successfully',
-        user: { id: userId, email, name },
-        token,
-    }, 201);
-});
-
-// ==================== LOGIN ====================
-auth.post('/login', zValidator('json', loginSchema), async (c) => {
-    const { email, password } = c.req.valid('json');
-
-    // Find user
-    const user = await db.query.users.findFirst({
-        where: eq(users.email, email),
-    });
-
-    if (!user) {
-        return c.json({ error: 'Invalid email or password' }, 401);
-    }
-
-    // Verify password
-    const isValid = await bcrypt.compare(password, user.passwordHash);
-
-    if (!isValid) {
-        return c.json({ error: 'Invalid email or password' }, 401);
-    }
-
-    // Generate token
-    const token = generateToken({ userId: user.id, email: user.email });
-
-    return c.json({
-        message: 'Login successful',
-        user: { id: user.id, email: user.email, name: user.name },
-        token,
-    });
-});
-
-// ==================== GET CURRENT USER ====================
-auth.get('/me', authMiddleware, async (c) => {
-    const { userId } = getCurrentUser(c);
-
-    const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: {
-            id: true,
-            email: true,
-            name: true,
-            preferences: true,
-            createdAt: true,
-        },
-    });
-
-    if (!user) {
-        return c.json({ error: 'User not found' }, 404);
-    }
-
-    return c.json({ user });
-});
-
-// ==================== UPDATE PREFERENCES ====================
-const preferencesSchema = z.object({
-    dailyGoal: z.number().min(1).max(100).optional(),
-    soundEnabled: z.boolean().optional(),
-    autoPlayAudio: z.boolean().optional(),
-    showIPA: z.boolean().optional(),
-    theme: z.enum(['light', 'dark', 'system']).optional(),
-});
-
-auth.patch('/me/preferences', authMiddleware, zValidator('json', preferencesSchema), async (c) => {
-    const { userId } = getCurrentUser(c);
-    const newPrefs = c.req.valid('json');
-
-    // Get current preferences
-    const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: { preferences: true },
-    });
-
-    // Merge with existing preferences
-    const currentPrefs = user?.preferences ? JSON.parse(user.preferences) : {};
-    const mergedPrefs = { ...currentPrefs, ...newPrefs };
-
-    // Update user preferences
-    await db.update(users)
-        .set({
-            preferences: JSON.stringify(mergedPrefs),
-            updatedAt: new Date(),
+        set.status = 201;
+        return {
+            message: 'User registered successfully',
+            user: { id: userId, email, name },
+            token,
+        };
+    }, {
+        body: t.Object({
+            email: t.String(),
+            password: t.String({ minLength: 6 }),
+            name: t.Optional(t.String()),
         })
-        .where(eq(users.id, userId));
+    })
 
-    return c.json({
-        message: 'Preferences updated',
-        preferences: mergedPrefs,
+    // ==================== LOGIN ====================
+    .post('/login', async ({ body, set }) => {
+        const { email, password } = body;
+
+        // Find user
+        const dbUser = await db.query.users.findFirst({
+            where: eq(users.email, email),
+        });
+
+        if (!dbUser) {
+            set.status = 401;
+            return { error: 'Invalid email or password' };
+        }
+
+        // Verify password
+        const isValid = await bcrypt.compare(password, dbUser.passwordHash);
+
+        if (!isValid) {
+            set.status = 401;
+            return { error: 'Invalid email or password' };
+        }
+
+        // Generate token
+        const token = generateToken({ userId: dbUser.id, email: dbUser.email });
+
+        return {
+            message: 'Login successful',
+            user: { id: dbUser.id, email: dbUser.email, name: dbUser.name },
+            token,
+        };
+    }, {
+        body: t.Object({
+            email: t.String(),
+            password: t.String(),
+        })
+    })
+
+    // ==================== GET CURRENT USER ====================
+    .get('/me', async ({ user, set }) => {
+        if (!user) {
+            set.status = 401;
+            return { error: 'Unauthorized' };
+        }
+
+        const dbUser = await db.query.users.findFirst({
+            where: eq(users.id, user.userId),
+            columns: {
+                id: true,
+                email: true,
+                name: true,
+                preferences: true,
+                createdAt: true,
+            },
+        });
+
+        if (!dbUser) {
+            set.status = 404;
+            return { error: 'User not found' };
+        }
+
+        return { user: dbUser };
+    })
+
+    // ==================== UPDATE PREFERENCES ====================
+    .patch('/me/preferences', async ({ body, user, set }) => {
+        if (!user) {
+            set.status = 401;
+            return { error: 'Unauthorized' };
+        }
+
+        // Get current preferences
+        const dbUser = await db.query.users.findFirst({
+            where: eq(users.id, user.userId),
+            columns: { preferences: true },
+        });
+
+        // Merge with existing preferences
+        const currentPrefs = dbUser?.preferences ? JSON.parse(dbUser.preferences) : {};
+        const mergedPrefs = { ...currentPrefs, ...body };
+
+        // Update user preferences
+        await db.update(users)
+            .set({
+                preferences: JSON.stringify(mergedPrefs),
+                updatedAt: new Date(),
+            })
+            .where(eq(users.id, user.userId));
+
+        return {
+            message: 'Preferences updated',
+            preferences: mergedPrefs,
+        };
+    }, {
+        body: t.Object({
+            dailyGoal: t.Optional(t.Number({ minimum: 1, maximum: 100 })),
+            soundEnabled: t.Optional(t.Boolean()),
+            autoPlayAudio: t.Optional(t.Boolean()),
+            showIPA: t.Optional(t.Boolean()),
+            theme: t.Optional(t.Union([
+                t.Literal('light'),
+                t.Literal('dark'),
+                t.Literal('system'),
+            ])),
+        })
     });
-});
 
 export default auth;
-

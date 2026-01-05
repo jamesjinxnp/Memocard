@@ -29,7 +29,7 @@
 | Layer | Technology |
 |-------|------------|
 | **Runtime** | Bun.js |
-| **Backend** | Hono.js |
+| **Backend** | Elysia.js |
 | **Database** | Turso (LibSQL) + Drizzle ORM |
 | **Frontend** | React 19 + Vite |
 | **State** | Zustand + TanStack Query |
@@ -95,7 +95,7 @@ JWT_SECRET=your-secret-key
 Memocard/
 ├── backend/
 │   ├── src/
-│   │   ├── index.ts          # Hono server entry
+│   │   ├── index.ts          # Elysia server entry
 │   │   ├── db/               # Database schema
 │   │   ├── routes/           # API endpoints
 │   │   ├── services/         # FSRS service

@@ -1,38 +1,30 @@
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { logger } from 'hono/logger';
+import { Elysia } from 'elysia';
+import { cors } from '@elysiajs/cors';
 
 import authRoutes from './routes/auth';
 import studyRoutes from './routes/study';
 import vocabularyRoutes from './routes/vocabulary';
 
-// Create Hono app
-const app = new Hono();
+// Create Elysia app
+const app = new Elysia()
+    // ==================== MIDDLEWARE ====================
+    .use(cors({
+        origin: /^http:\/\/localhost:\d+$/,
+        credentials: true,
+    }))
+    .onRequest(({ request }) => {
+        console.log(`${request.method} ${new URL(request.url).pathname}`);
+    })
 
-// ==================== MIDDLEWARE ====================
-app.use('*', logger());
-app.use('*', cors({
-    origin: ['http://localhost:5173', 'https://memocard.vercel.app'],
-    credentials: true,
-}));
-
-// ==================== ROUTES ====================
-app.route('/auth', authRoutes);
-app.route('/study', studyRoutes);
-app.route('/vocabulary', vocabularyRoutes);
-
-// ==================== HEALTH CHECK ====================
-app.get('/health', (c) => {
-    return c.json({
+    // ==================== HEALTH CHECK ====================
+    .get('/health', () => ({
         status: 'ok',
         timestamp: new Date().toISOString(),
         version: '1.0.0',
-    });
-});
+    }))
 
-// ==================== ROOT ====================
-app.get('/', (c) => {
-    return c.json({
+    // ==================== ROOT ====================
+    .get('/', () => ({
         name: 'Memocard API',
         version: '1.0.0',
         endpoints: {
@@ -41,26 +33,23 @@ app.get('/', (c) => {
             vocabulary: '/vocabulary',
             health: '/health',
         },
+    }))
+
+    // ==================== ROUTES ====================
+    .use(authRoutes)
+    .use(studyRoutes)
+    .use(vocabularyRoutes)
+
+    // ==================== ERROR HANDLER ====================
+    .onError(({ error }) => {
+        console.error('Server error:', error);
+        return { error: 'Internal Server Error' };
     });
-});
-
-// ==================== 404 HANDLER ====================
-app.notFound((c) => {
-    return c.json({ error: 'Not Found' }, 404);
-});
-
-// ==================== ERROR HANDLER ====================
-app.onError((err, c) => {
-    console.error('Server error:', err);
-    return c.json({ error: 'Internal Server Error' }, 500);
-});
 
 // ==================== START SERVER ====================
 const port = parseInt(process.env.PORT || '3000');
 
+app.listen(port);
 console.log(`🚀 Memocard API server running on http://localhost:${port}`);
 
-export default {
-    port,
-    fetch: app.fetch,
-};
+export default app;

@@ -1,4 +1,4 @@
-import { Context, Next } from 'hono';
+import { Elysia } from 'elysia';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
@@ -7,10 +7,6 @@ export interface JWTPayload {
     userId: string;
     email: string;
 }
-
-export type AuthContext = Context & {
-    user?: JWTPayload;
-};
 
 /**
  * Generate JWT access token
@@ -31,31 +27,32 @@ export function verifyToken(token: string): JWTPayload | null {
 }
 
 /**
- * Auth middleware - protects routes requiring authentication
+ * Get user from authorization header
  */
-export async function authMiddleware(c: Context, next: Next) {
-    const authHeader = c.req.header('Authorization');
+export function getUserFromHeader(headers: Record<string, string | undefined>): JWTPayload | null {
+    const authHeader = headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return c.json({ error: 'Unauthorized - Missing token' }, 401);
+        return null;
     }
 
     const token = authHeader.slice(7); // Remove 'Bearer ' prefix
-    const payload = verifyToken(token);
-
-    if (!payload) {
-        return c.json({ error: 'Unauthorized - Invalid token' }, 401);
-    }
-
-    // Attach user info to context
-    c.set('user', payload);
-
-    await next();
+    return verifyToken(token);
 }
 
 /**
- * Get current user from context
+ * Auth plugin - adds user info to context via derive
  */
-export function getCurrentUser(c: Context): JWTPayload {
-    return c.get('user') as JWTPayload;
+export const authPlugin = new Elysia({ name: 'auth-plugin' })
+    .derive(({ headers }) => {
+        const user = getUserFromHeader(headers);
+        return { user };
+    });
+
+/**
+ * Create unauthorized response with proper status
+ */
+export function unauthorizedError(set: { status?: number }) {
+    set.status = 401;
+    return { error: 'Unauthorized - Missing or invalid token' };
 }
