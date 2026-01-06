@@ -12,9 +12,10 @@ import {
     MultipleChoiceMode,
     ClozeMode,
     SpellingBeeMode,
+    AudioChoiceMode,
 } from '@/components/study-modes';
 
-type StudyModeType = 'reading' | 'typing' | 'listening' | 'multiple_choice' | 'cloze' | 'spelling_bee';
+type StudyModeType = 'reading' | 'typing' | 'listening' | 'multiple_choice' | 'cloze' | 'spelling_bee' | 'audio_choice';
 
 export default function Study() {
     const { mode } = useParams<{ mode: StudyModeType }>();
@@ -39,7 +40,7 @@ export default function Study() {
     // Fetch distractors for multiple choice
     useEffect(() => {
         const fetchDistractors = async () => {
-            if (mode === 'multiple_choice' && sessionData?.cards?.length > 0) {
+            if ((mode === 'multiple_choice' || mode === 'audio_choice') && sessionData?.cards?.length > 0) {
                 const currentCard = sessionData.cards[currentIndex];
                 if (currentCard) {
                     const response = await vocabularyApi.getRandom(3, undefined, [currentCard.vocabulary.id]);
@@ -85,6 +86,7 @@ export default function Study() {
         multiple_choice: 'Multiple Choice',
         cloze: 'Context Cloze',
         spelling_bee: 'Spelling Bee',
+        audio_choice: 'Audio Choice',
     };
 
     if (isLoading) {
@@ -148,6 +150,8 @@ export default function Study() {
                 return <ClozeMode vocabulary={vocabulary} onRate={handleRate} />;
             case 'spelling_bee':
                 return <SpellingBeeMode vocabulary={vocabulary} onRate={handleRate} />;
+            case 'audio_choice':
+                return <AudioChoiceMode vocabulary={vocabulary} distractors={distractors} onRate={handleRate} />;
             default:
                 return <ReadingMode vocabulary={vocabulary} onRate={handleRate} />;
         }

@@ -1,260 +1,295 @@
-import { useState, useEffect, useRef } from 'react';
-import { speakWord } from '../../services/audio';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 interface Vocabulary {
-    id: number;
-    word: string;
-    defTh?: string;
-    defEn?: string;
-    type?: string;
-    ipaUs?: string;
+  id: number;
+  word: string;
+  defTh?: string;
+  defEn?: string;
+  type?: string;
+  ipaUs?: string;
 }
 
 interface SpellingBeeModeProps {
-    vocabulary: Vocabulary;
-    onRate: (rating: number) => void;
+  vocabulary: Vocabulary;
+  onRate: (rating: number) => void;
 }
 
 type HintLevel = 0 | 1 | 2 | 3 | 4 | 5;
 
 export default function SpellingBeeMode({ vocabulary, onRate }: SpellingBeeModeProps) {
-    const [input, setInput] = useState('');
-    const [showResult, setShowResult] = useState(false);
-    const [isCorrect, setIsCorrect] = useState(false);
-    const [hintLevel, setHintLevel] = useState<HintLevel>(0);
-    const [attempts, setAttempts] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
+  const [input, setInput] = useState('');
+  const [showResult, setShowResult] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [hintLevel, setHintLevel] = useState<HintLevel>(0);
+  const [attempts, setAttempts] = useState(0);
+  const [startTime, setStartTime] = useState<number>(Date.now());
+  const [responseTime, setResponseTime] = useState<number>(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        setInput('');
-        setShowResult(false);
-        setIsCorrect(false);
-        setHintLevel(0);
-        setAttempts(0);
-        // Auto-play audio on new word
-        handlePlay();
-        inputRef.current?.focus();
-    }, [vocabulary.id]);
+  useEffect(() => {
+    setInput('');
+    setShowResult(false);
+    setIsCorrect(false);
+    setHintLevel(0);
+    setAttempts(0);
+    setStartTime(Date.now());
+    setResponseTime(0);
+    inputRef.current?.focus();
+  }, [vocabulary.id]);
 
-    const handlePlay = async (slow = false) => {
-        setIsPlaying(true);
-        try {
-            await speakWord(vocabulary.word, slow);
-        } finally {
-            setIsPlaying(false);
-        }
+  // Generate shuffled positions based on word (consistent for same word)
+  const shuffledPositions = useMemo(() => {
+    const word = vocabulary.word;
+    const positions = word.split('').map((_, i) => i);
+
+    // Simple seeded shuffle based on word
+    const seed = word.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const random = (i: number) => {
+      const x = Math.sin(seed + i) * 10000;
+      return x - Math.floor(x);
     };
 
-    const getHint = (): string | null => {
-        const word = vocabulary.word;
+    // Fisher-Yates shuffle with seed
+    for (let i = positions.length - 1; i > 0; i--) {
+      const j = Math.floor(random(i) * (i + 1));
+      [positions[i], positions[j]] = [positions[j], positions[i]];
+    }
 
-        switch (hintLevel) {
-            case 0:
-                return null;
-            case 1:
-                // Word length
-                return `${word.length} ตัวอักษร`;
-            case 2:
-                // First letter
-                return `เริ่มต้นด้วย "${word[0].toUpperCase()}"`;
-            case 3:
-                // First and last letter
-                return `${word[0].toUpperCase()} _ _ _ ${word[word.length - 1]}`;
-            case 4:
-                // Part of speech
-                return vocabulary.type ? `(${vocabulary.type})` : 'No type available';
-            case 5:
-                // Definition
-                return vocabulary.defTh || vocabulary.defEn || 'No definition';
-            default:
-                return null;
-        }
-    };
+    return positions;
+  }, [vocabulary.word]);
 
-    const useHint = () => {
-        if (hintLevel < 5) {
-            setHintLevel((prev) => (prev + 1) as HintLevel);
-        }
-    };
+  // Hangman-style hint: progressively reveal letters at random positions
+  const getRevealedWord = (): string => {
+    const word = vocabulary.word;
+    const len = word.length;
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    if (len === 0) return '';
 
-        const userAnswer = input.toLowerCase().trim();
-        const correctAnswer = vocabulary.word.toLowerCase().trim();
-        const correct = userAnswer === correctAnswer;
+    // Reveal positions based on hint level (using shuffled order)
+    const revealedPositions: Set<number> = new Set();
+    const positionsToReveal = Math.min(hintLevel, shuffledPositions.length);
 
-        setAttempts(attempts + 1);
+    for (let i = 0; i < positionsToReveal; i++) {
+      revealedPositions.add(shuffledPositions[i]);
+    }
 
-        if (correct) {
-            setIsCorrect(true);
-            setShowResult(true);
-            speakWord(vocabulary.word);
-        } else if (attempts >= 2) {
-            // Show answer after 3 failed attempts
-            setIsCorrect(false);
-            setShowResult(true);
-        } else {
-            // Shake animation and clear input
-            setInput('');
-            inputRef.current?.focus();
-        }
-    };
+    // Build the display string
+    return word
+      .split('')
+      .map((char, idx) => {
+        if (char === ' ') return '  ';
+        if (char === '-') return '-';
+        return revealedPositions.has(idx) ? char.toUpperCase() : '_';
+      })
+      .join(' ');
+  };
 
-    // Calculate rating based on hints used and attempts
-    const getSuggestedRating = () => {
-        if (!isCorrect) return 1;
-        if (hintLevel === 0 && attempts === 1) return 4; // Easy
-        if (hintLevel <= 2 && attempts <= 2) return 3; // Good
-        return 2; // Hard
-    };
+  const useHint = () => {
+    if (hintLevel < 5) {
+      setHintLevel((prev) => (prev + 1) as HintLevel);
+    }
+  };
 
-    const hintLabels = [
-        '🔒 No hints',
-        '📏 จำนวนตัวอักษร',
-        '🔤 ตัวอักษรแรก',
-        '🔡 ตัวแรก + ตัวสุดท้าย',
-        '📚 ประเภทคำ',
-        '💡 ความหมาย'
-    ];
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-    return (
-        <div className="spelling-bee-mode">
-            {/* Audio Card */}
-            <div className="audio-card">
-                <div className="mode-badge">🐝 Spelling Bee (Hardcore)</div>
+    const userAnswer = input.toLowerCase().trim();
+    const correctAnswer = vocabulary.word.toLowerCase().trim();
+    const correct = userAnswer === correctAnswer;
+    const elapsed = (Date.now() - startTime) / 1000;
 
-                <div className="audio-controls">
-                    <button
-                        className="play-btn large"
-                        onClick={() => handlePlay(false)}
-                        disabled={isPlaying}
-                    >
-                        🔊
-                    </button>
-                    <button
-                        className="play-btn small"
-                        onClick={() => handlePlay(true)}
-                        disabled={isPlaying}
-                    >
-                        🐢
-                    </button>
-                </div>
+    setAttempts(attempts + 1);
 
-                <p className="instruction">ฟังเสียงและสะกดคำให้ถูกต้อง</p>
+    if (correct) {
+      setIsCorrect(true);
+      setShowResult(true);
+      setResponseTime(elapsed);
+    } else if (attempts >= 2) {
+      // Show answer after 3 failed attempts
+      setIsCorrect(false);
+      setShowResult(true);
+      setResponseTime(elapsed);
+    } else {
+      // Shake animation and clear input
+      setInput('');
+      inputRef.current?.focus();
+    }
+  };
+
+  // Time-based rating: Again (wrong or >60s or hints≥4), Hard (30-60s or hints 2-3), Good (12-30s or hints 1), Easy (<12s with 0 hints)
+  const getSuggestedRating = () => {
+    if (!isCorrect) return 1; // Again - wrong answer
+    if (responseTime > 60 || hintLevel >= 4) return 1; // Again - took too long or too many hints
+    if (responseTime > 30 || hintLevel >= 2) return 2; // Hard
+    if (responseTime > 12 || hintLevel >= 1 || attempts > 1) return 3; // Good
+    return 4; // Easy - fast, no hints, first attempt
+  };
+
+  // Live timer
+  const [liveTime, setLiveTime] = useState(0);
+  useEffect(() => {
+    if (showResult) return;
+    const interval = setInterval(() => {
+      setLiveTime((Date.now() - startTime) / 1000);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [startTime, showResult]);
+
+  const getTimerColor = () => {
+    if (liveTime < 12) return '#22c55e'; // Easy - green
+    if (liveTime < 30) return '#eab308'; // Good - yellow
+    if (liveTime < 60) return '#f97316'; // Hard - orange
+    return '#ef4444'; // Again - red
+  };
+
+  return (
+    <div className="spelling-bee-mode">
+      {/* Live Timer Bar */}
+      {!showResult && (
+        <div className="live-timer-container">
+          <div className="live-timer-track">
+            <div className="live-timer-bar" style={{
+              width: `${Math.min((liveTime / 60) * 100, 100)}%`,
+              background: getTimerColor()
+            }} />
+          </div>
+          <span className="live-timer-text" style={{ color: getTimerColor() }}>
+            {Math.floor(liveTime)}s
+          </span>
+        </div>
+      )}
+
+      {/* Definition Card - แสดงคำแปลไทย */}
+      <div className="definition-card">
+        <p className="thai-definition">{vocabulary.defTh || vocabulary.defEn}</p>
+
+        {vocabulary.type && (
+          <span className="type-badge">{vocabulary.type}</span>
+        )}
+      </div>
+
+      {/* Hint System */}
+      <div className="hint-section">
+        <div className="hint-header">
+          <span>Hints Used: {hintLevel}/5</span>
+          <button
+            className="hint-btn"
+            onClick={useHint}
+            disabled={hintLevel >= 5 || showResult}
+          >
+            💡 ขอ Hint ({5 - hintLevel} เหลือ)
+          </button>
+        </div>
+
+        {/* Show word length always */}
+        <p className="word-length-info">
+          📏 {vocabulary.word.length} ตัวอักษร
+        </p>
+      </div>
+
+      {/* Input Form */}
+      {!showResult ? (
+        <form onSubmit={handleSubmit} className="input-form">
+          {/* Unified Hangman Input - user typing replaces underscores */}
+          <div
+            className={`hangman-input-wrapper ${attempts > 0 && !isCorrect ? 'shake' : ''}`}
+            onClick={() => inputRef.current?.focus()}
+          >
+            <div className="hangman-display-line">
+              {/* Show typed letters + remaining blanks */}
+              {vocabulary.word.split('').map((_, idx) => {
+                const typedChar = input[idx];
+                const hintChar = getRevealedWord().split(' ')[idx];
+
+                // Priority: user typed > hint revealed > underscore
+                if (typedChar) {
+                  return <span key={idx} className="typed-char">{typedChar.toUpperCase()}</span>;
+                } else if (hintChar && hintChar !== '_') {
+                  return <span key={idx} className="hint-char">{hintChar}</span>;
+                } else {
+                  return <span key={idx} className="blank-char">_</span>;
+                }
+              })}
             </div>
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              className="hangman-hidden-input"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              maxLength={vocabulary.word.length}
+            />
+          </div>
 
-            {/* Hint System */}
-            <div className="hint-section">
-                <div className="hint-header">
-                    <span>Hints Used: {hintLevel}/5</span>
-                    <button
-                        className="hint-btn"
-                        onClick={useHint}
-                        disabled={hintLevel >= 5 || showResult}
-                    >
-                        💡 ขอ Hint ({5 - hintLevel} เหลือ)
-                    </button>
-                </div>
+          {hintLevel >= 5 && (vocabulary.defTh || vocabulary.defEn) && (
+            <p className="hint-definition-below">💡 {vocabulary.defTh || vocabulary.defEn}</p>
+          )}
 
-                {hintLevel > 0 && (
-                    <div className="hints-list">
-                        {Array.from({ length: hintLevel }, (_, i) => (
-                            <div key={i} className="hint-item">
-                                <span className="hint-label">{hintLabels[i + 1]}</span>
-                            </div>
-                        ))}
-                        <div className="current-hint">
-                            {getHint()}
-                        </div>
-                    </div>
-                )}
-            </div>
+          <div className="attempt-indicator">
+            ความพยายาม: {attempts + 1}/3
+          </div>
 
-            {/* Input Form */}
-            {!showResult ? (
-                <form onSubmit={handleSubmit} className="input-form">
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="สะกดคำ..."
-                        className={`word-input ${attempts > 0 && !isCorrect ? 'shake' : ''}`}
-                        autoComplete="off"
-                        autoCapitalize="off"
-                        spellCheck="false"
-                    />
+          <button type="submit" className="submit-btn" disabled={!input.trim()}>
+            ตรวจคำตอบ
+          </button>
+        </form>
+      ) : (
+        /* Result */
+        <div className={`result ${isCorrect ? 'correct' : 'incorrect'}`}>
+          <div className="result-icon">{isCorrect ? '🏆' : '😢'}</div>
 
-                    <div className="attempt-indicator">
-                        ความพยายาม: {attempts + 1}/3
-                    </div>
+          <h2 className="word">{vocabulary.word}</h2>
 
-                    <button type="submit" className="submit-btn" disabled={!input.trim()}>
-                        ตรวจคำตอบ
-                    </button>
-                </form>
-            ) : (
-                /* Result */
-                <div className={`result ${isCorrect ? 'correct' : 'incorrect'}`}>
-                    <div className="result-icon">{isCorrect ? '🏆' : '😢'}</div>
+          {vocabulary.ipaUs && (
+            <p className="ipa">/{vocabulary.ipaUs}/</p>
+          )}
 
-                    <h2 className="word">{vocabulary.word}</h2>
+          {!isCorrect && input && (
+            <p className="your-answer">
+              คำตอบของคุณ: <span className="wrong">{input}</span>
+            </p>
+          )}
 
-                    {vocabulary.ipaUs && (
-                        <p className="ipa">/{vocabulary.ipaUs}/</p>
-                    )}
+          <div className="stats">
+            <span>⏱️ {responseTime.toFixed(1)}s</span>
+            <span>Hints: {hintLevel}</span>
+            <span>Attempts: {attempts}</span>
+          </div>
 
-                    {!isCorrect && input && (
-                        <p className="your-answer">
-                            คำตอบของคุณ: <span className="wrong">{input}</span>
-                        </p>
-                    )}
+          {/* Rating */}
+          <div className="rating-buttons">
+            <button
+              className={`rating-btn again ${getSuggestedRating() === 1 ? 'suggested' : ''}`}
+              onClick={() => onRate(1)}
+            >
+              Again
+            </button>
+            <button
+              className={`rating-btn hard ${getSuggestedRating() === 2 ? 'suggested' : ''}`}
+              onClick={() => onRate(2)}
+            >
+              Hard
+            </button>
+            <button
+              className={`rating-btn good ${getSuggestedRating() === 3 ? 'suggested' : ''}`}
+              onClick={() => onRate(3)}
+            >
+              Good
+            </button>
+            <button
+              className={`rating-btn easy ${getSuggestedRating() === 4 ? 'suggested' : ''}`}
+              onClick={() => onRate(4)}
+            >
+              Easy
+            </button>
+          </div>
+        </div>
+      )}
 
-                    <div className="stats">
-                        <span>Hints ใช้: {hintLevel}</span>
-                        <span>Attempts: {attempts}</span>
-                    </div>
-
-                    <button
-                        className="speak-btn"
-                        onClick={() => handlePlay(false)}
-                    >
-                        🔊 ฟังอีกครั้ง
-                    </button>
-
-                    {/* Rating */}
-                    <div className="rating-buttons">
-                        <button
-                            className={`rating-btn again ${getSuggestedRating() === 1 ? 'suggested' : ''}`}
-                            onClick={() => onRate(1)}
-                        >
-                            Again
-                        </button>
-                        <button
-                            className={`rating-btn hard ${getSuggestedRating() === 2 ? 'suggested' : ''}`}
-                            onClick={() => onRate(2)}
-                        >
-                            Hard
-                        </button>
-                        <button
-                            className={`rating-btn good ${getSuggestedRating() === 3 ? 'suggested' : ''}`}
-                            onClick={() => onRate(3)}
-                        >
-                            Good
-                        </button>
-                        <button
-                            className={`rating-btn easy ${getSuggestedRating() === 4 ? 'suggested' : ''}`}
-                            onClick={() => onRate(4)}
-                        >
-                            Easy
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            <style>{`
+      <style>{`
         .spelling-bee-mode {
           display: flex;
           flex-direction: column;
@@ -265,14 +300,61 @@ export default function SpellingBeeMode({ vocabulary, onRate }: SpellingBeeModeP
           margin: 0 auto;
         }
 
-        .audio-card {
-          background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-          color: #1e293b;
+        .live-timer-container {
+          width: 100%;
+          background: #1e293b;
+          border-radius: 12px;
+          padding: 0.5rem 1rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .live-timer-track {
+          flex: 1;
+          height: 8px;
+          background: #334155;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+
+        .live-timer-bar {
+          height: 100%;
+          border-radius: 4px;
+          transition: width 0.1s linear, background 0.3s;
+        }
+
+        .live-timer-text {
+          font-size: 0.9rem;
+          font-weight: 600;
+          white-space: nowrap;
+          min-width: 50px;
+          text-align: right;
+        }
+
+        .definition-card {
+          background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+          color: white;
           padding: 2rem;
           border-radius: 16px;
           text-align: center;
           width: 100%;
           box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .thai-definition {
+          font-size: 1.5rem;
+          font-weight: 600;
+          margin: 1rem 0;
+        }
+
+        .type-badge {
+          background: rgba(255,255,255,0.2);
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.85rem;
+          display: inline-block;
+          margin-bottom: 1rem;
         }
 
         .mode-badge {
@@ -348,25 +430,71 @@ export default function SpellingBeeMode({ vocabulary, onRate }: SpellingBeeModeP
           cursor: not-allowed;
         }
 
-        .hints-list {
+        .word-length-info {
+          font-size: 0.9rem;
+          color: #64748b;
+          margin-bottom: 0.5rem;
+        }
+
+        .hangman-input-wrapper {
+          position: relative;
+          background: white;
+          border: 3px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 1.5rem;
+          min-height: 80px;
           display: flex;
           flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          cursor: text;
+        }
+
+        .hangman-input-wrapper:focus-within {
+          border-color: #667eea;
+          box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+        }
+
+        .hangman-display-line {
+          display: flex;
           gap: 0.5rem;
+          justify-content: center;
+          flex-wrap: wrap;
         }
 
-        .hint-item {
-          font-size: 0.85rem;
-          color: #64748b;
-        }
-
-        .current-hint {
-          font-size: 1.1rem;
-          font-weight: 600;
-          color: #1e293b;
-          background: #fef3c7;
-          padding: 0.75rem;
-          border-radius: 8px;
+        .hangman-display-line span {
+          font-size: 1.8rem;
+          font-weight: 700;
+          font-family: monospace;
+          min-width: 1.5rem;
           text-align: center;
+        }
+
+        .typed-char {
+          color: #1e293b;
+        }
+
+        .hint-char {
+          color: #f59e0b;
+        }
+
+        .blank-char {
+          color: #94a3b8;
+        }
+
+        .hangman-hidden-input {
+          position: absolute;
+          opacity: 0;
+          width: 100%;
+          height: 100%;
+          cursor: text;
+        }
+
+        .hint-definition-below {
+          font-size: 0.9rem;
+          color: #64748b;
+          text-align: center;
+          margin: 0.5rem 0;
         }
 
         .input-form {
@@ -512,6 +640,6 @@ export default function SpellingBeeMode({ vocabulary, onRate }: SpellingBeeModeP
           background: rgba(255,255,255,0.2);
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }

@@ -79,27 +79,3 @@ export const useStudyStore = create<StudyState>((set) => ({
     setStats: (stats) => set({ stats }),
 }));
 
-// ==================== SETTINGS STORE ====================
-interface SettingsState {
-    theme: 'light' | 'dark';
-    dailyGoal: number;
-    soundEnabled: boolean;
-    toggleTheme: () => void;
-    setDailyGoal: (goal: number) => void;
-    toggleSound: () => void;
-}
-
-export const useSettingsStore = create<SettingsState>()(
-    persist(
-        (set) => ({
-            theme: 'dark',
-            dailyGoal: 20,
-            soundEnabled: true,
-            toggleTheme: () =>
-                set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
-            setDailyGoal: (goal) => set({ dailyGoal: goal }),
-            toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
-        }),
-        { name: 'settings-storage' }
-    )
-);

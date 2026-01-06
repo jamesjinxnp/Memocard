@@ -119,49 +119,6 @@ const auth = new Elysia({ prefix: '/auth' })
         }
 
         return { user: dbUser };
-    })
-
-    // ==================== UPDATE PREFERENCES ====================
-    .patch('/me/preferences', async ({ body, user, set }) => {
-        if (!user) {
-            set.status = 401;
-            return { error: 'Unauthorized' };
-        }
-
-        // Get current preferences
-        const dbUser = await db.query.users.findFirst({
-            where: eq(users.id, user.userId),
-            columns: { preferences: true },
-        });
-
-        // Merge with existing preferences
-        const currentPrefs = dbUser?.preferences ? JSON.parse(dbUser.preferences) : {};
-        const mergedPrefs = { ...currentPrefs, ...body };
-
-        // Update user preferences
-        await db.update(users)
-            .set({
-                preferences: JSON.stringify(mergedPrefs),
-                updatedAt: new Date(),
-            })
-            .where(eq(users.id, user.userId));
-
-        return {
-            message: 'Preferences updated',
-            preferences: mergedPrefs,
-        };
-    }, {
-        body: t.Object({
-            dailyGoal: t.Optional(t.Number({ minimum: 1, maximum: 100 })),
-            soundEnabled: t.Optional(t.Boolean()),
-            autoPlayAudio: t.Optional(t.Boolean()),
-            showIPA: t.Optional(t.Boolean()),
-            theme: t.Optional(t.Union([
-                t.Literal('light'),
-                t.Literal('dark'),
-                t.Literal('system'),
-            ])),
-        })
     });
 
 export default auth;

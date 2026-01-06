@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard';
 import Study from './pages/Study';
 import Login from './pages/Login';
 import BrowseVocabulary from './pages/BrowseVocabulary';
-import Settings from './pages/Settings';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -40,14 +39,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <BrowseVocabulary />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Settings />
               </ProtectedRoute>
             }
           />

@@ -5,7 +5,7 @@ import { useAuthStore, useStudyStore } from '@/stores';
 import { studyApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { BookOpen, Keyboard, Headphones, Target, FileText, Sparkles, LogOut, Plus, Settings } from 'lucide-react';
+import { BookOpen, Keyboard, Headphones, Target, FileText, Sparkles, LogOut, Plus } from 'lucide-react';
 import ProgressCharts from '@/components/ProgressCharts';
 
 export default function Dashboard() {
@@ -35,6 +35,7 @@ export default function Dashboard() {
     { id: 'multiple_choice', name: 'Multiple Choice', icon: Target, desc: 'Pick the answer', color: 'from-emerald-500 to-green-500' },
     { id: 'cloze', name: 'Cloze', icon: FileText, desc: 'Fill in the blank', color: 'from-amber-500 to-orange-500' },
     { id: 'spelling_bee', name: 'Spelling Bee', icon: Sparkles, desc: 'Hardcore mode', color: 'from-red-500 to-pink-500' },
+    { id: 'audio_choice', name: 'Audio Choice', icon: Headphones, desc: 'ฟังเลือกตอบ', color: 'from-purple-500 to-indigo-500' },
   ];
 
   return (
@@ -52,9 +53,6 @@ export default function Dashboard() {
             <Button variant="default" size="sm" onClick={() => navigate('/browse')}>
               <Plus className="size-4" />
               <span className="hidden sm:inline">Add Cards</span>
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/settings')}>
-              <Settings className="size-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut className="size-4" />

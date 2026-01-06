@@ -39,14 +39,6 @@ export const authApi = {
         api.post('/auth/login', data),
 
     me: () => api.get('/auth/me'),
-
-    updatePreferences: (prefs: {
-        dailyGoal?: number;
-        soundEnabled?: boolean;
-        autoPlayAudio?: boolean;
-        showIPA?: boolean;
-        theme?: 'light' | 'dark' | 'system';
-    }) => api.patch('/auth/me/preferences', prefs),
 };
 
 // ==================== STUDY API ====================

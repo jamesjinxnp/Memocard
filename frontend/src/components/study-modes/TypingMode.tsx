@@ -2,172 +2,211 @@ import { useState, useRef, useEffect } from 'react';
 import { speakWord } from '../../services/audio';
 
 interface Vocabulary {
-    id: number;
-    word: string;
-    defTh?: string;
-    defEn?: string;
-    type?: string;
-    ipaUs?: string;
+  id: number;
+  word: string;
+  defTh?: string;
+  defEn?: string;
+  type?: string;
+  ipaUs?: string;
 }
 
 interface TypingModeProps {
-    vocabulary: Vocabulary;
-    onRate: (rating: number) => void;
+  vocabulary: Vocabulary;
+  onRate: (rating: number) => void;
 }
 
 export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
-    const [input, setInput] = useState('');
-    const [showResult, setShowResult] = useState(false);
-    const [isCorrect, setIsCorrect] = useState(false);
-    const [attempts, setAttempts] = useState(0);
-    const inputRef = useRef<HTMLInputElement>(null);
+  const [input, setInput] = useState('');
+  const [showResult, setShowResult] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [startTime, setStartTime] = useState<number>(Date.now());
+  const [responseTime, setResponseTime] = useState<number>(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        inputRef.current?.focus();
-        setInput('');
-        setShowResult(false);
-        setIsCorrect(false);
-        setAttempts(0);
-    }, [vocabulary.id]);
+  useEffect(() => {
+    inputRef.current?.focus();
+    setInput('');
+    setShowResult(false);
+    setIsCorrect(false);
+    setAttempts(0);
+    setStartTime(Date.now());
+    setResponseTime(0);
+  }, [vocabulary.id]);
 
-    const normalizeText = (text: string) =>
-        text.toLowerCase().trim().replace(/[^a-z\s-]/g, '');
+  const normalizeText = (text: string) =>
+    text.toLowerCase().trim().replace(/[^a-z\s-]/g, '');
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-        const userAnswer = normalizeText(input);
-        const correctAnswer = normalizeText(vocabulary.word);
-        const correct = userAnswer === correctAnswer;
+    const userAnswer = normalizeText(input);
+    const correctAnswer = normalizeText(vocabulary.word);
+    const correct = userAnswer === correctAnswer;
+    const elapsed = (Date.now() - startTime) / 1000; // seconds
 
-        setIsCorrect(correct);
-        setShowResult(true);
-        setAttempts(attempts + 1);
+    setIsCorrect(correct);
+    setShowResult(true);
+    setAttempts(attempts + 1);
+    setResponseTime(elapsed);
 
-        if (correct) {
-            speakWord(vocabulary.word);
-        }
-    };
+    if (correct) {
+      speakWord(vocabulary.word);
+    }
+  };
 
-    const handleRate = (rating: number) => {
-        onRate(rating);
-        setInput('');
-        setShowResult(false);
-    };
+  const handleRate = (rating: number) => {
+    onRate(rating);
+    setInput('');
+    setShowResult(false);
+  };
 
-    // Auto-rate based on attempts
-    const getSuggestedRating = () => {
-        if (!isCorrect) return 1; // Again
-        if (attempts === 1) return 4; // Easy - first try
-        if (attempts === 2) return 3; // Good - second try
-        return 2; // Hard - more than 2 tries
-    };
+  // Time-based rating: Again (wrong or >45s), Hard (20-45s), Good (8-20s), Easy (<8s)
+  const getSuggestedRating = () => {
+    if (!isCorrect) return 1; // Again - wrong answer
+    if (responseTime > 45) return 1; // Again - took too long
+    if (responseTime > 20) return 2; // Hard
+    if (responseTime > 8) return 3; // Good
+    return 4; // Easy - fast response
+  };
 
-    return (
-        <div className="typing-mode">
-            {/* Definition Display */}
-            <div className="definition-card">
-                {vocabulary.type && (
-                    <span className="type-badge">{vocabulary.type}</span>
-                )}
+  // Live timer
+  const [liveTime, setLiveTime] = useState(0);
+  useEffect(() => {
+    if (showResult) return;
+    const interval = setInterval(() => {
+      setLiveTime((Date.now() - startTime) / 1000);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [startTime, showResult]);
 
-                {vocabulary.defEn && (
-                    <p className="def-en">{vocabulary.defEn}</p>
-                )}
+  const getTimerColor = () => {
+    if (liveTime < 8) return '#22c55e'; // Easy - green
+    if (liveTime < 20) return '#eab308'; // Good - yellow
+    if (liveTime < 45) return '#f97316'; // Hard - orange
+    return '#ef4444'; // Again - red
+  };
 
-                {vocabulary.defTh && (
-                    <p className="def-th">{vocabulary.defTh}</p>
-                )}
-            </div>
+  return (
+    <div className="typing-mode">
+      {/* Live Timer Bar */}
+      {!showResult && (
+        <div className="live-timer-container">
+          <div className="live-timer-track">
+            <div className="live-timer-bar" style={{
+              width: `${Math.min((liveTime / 45) * 100, 100)}%`,
+              background: getTimerColor()
+            }} />
+          </div>
+          <span className="live-timer-text" style={{ color: getTimerColor() }}>
+            {Math.floor(liveTime)}s
+          </span>
+        </div>
+      )}
 
-            {/* Input Form */}
-            {!showResult ? (
-                <form onSubmit={handleSubmit} className="input-form">
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="พิมพ์คำศัพท์ที่ถูกต้อง..."
-                        className="word-input"
-                        autoComplete="off"
-                        autoCapitalize="off"
-                        spellCheck="false"
-                    />
-                    <button type="submit" className="submit-btn" disabled={!input.trim()}>
-                        ตรวจคำตอบ
-                    </button>
-                </form>
-            ) : (
-                /* Result Display */
-                <div className={`result ${isCorrect ? 'correct' : 'incorrect'}`}>
-                    <div className="result-icon">
-                        {isCorrect ? '✅' : '❌'}
-                    </div>
+      {/* Definition Display */}
+      <div className="definition-card">
+        {vocabulary.type && (
+          <span className="type-badge">{vocabulary.type}</span>
+        )}
 
-                    <h2 className="correct-word">{vocabulary.word}</h2>
+        {vocabulary.defEn && (
+          <p className="def-en">{vocabulary.defEn}</p>
+        )}
 
-                    {vocabulary.ipaUs && (
-                        <p className="ipa">/{vocabulary.ipaUs}/</p>
-                    )}
+        {vocabulary.defTh && (
+          <p className="def-th">{vocabulary.defTh}</p>
+        )}
+      </div>
 
-                    {!isCorrect && (
-                        <p className="your-answer">
-                            คำตอบของคุณ: <span className="wrong">{input}</span>
-                        </p>
-                    )}
+      {/* Input Form */}
+      {!showResult ? (
+        <form onSubmit={handleSubmit} className="input-form">
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="พิมพ์คำศัพท์ที่ถูกต้อง..."
+            className="word-input"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck="false"
+          />
+          <button type="submit" className="submit-btn" disabled={!input.trim()}>
+            ตรวจคำตอบ
+          </button>
+        </form>
+      ) : (
+        /* Result Display */
+        <div className={`result ${isCorrect ? 'correct' : 'incorrect'}`}>
+          <div className="result-icon">
+            {isCorrect ? '✅' : '❌'}
+          </div>
 
-                    <button
-                        className="speak-btn"
-                        onClick={() => speakWord(vocabulary.word)}
-                    >
-                        🔊 ฟังเสียง
-                    </button>
+          <h2 className="correct-word">{vocabulary.word}</h2>
 
-                    {/* Rating Buttons */}
-                    <div className="rating-buttons">
-                        <button
-                            className={`rating-btn again ${getSuggestedRating() === 1 ? 'suggested' : ''}`}
-                            onClick={() => handleRate(1)}
-                        >
-                            Again
-                        </button>
-                        <button
-                            className={`rating-btn hard ${getSuggestedRating() === 2 ? 'suggested' : ''}`}
-                            onClick={() => handleRate(2)}
-                        >
-                            Hard
-                        </button>
-                        <button
-                            className={`rating-btn good ${getSuggestedRating() === 3 ? 'suggested' : ''}`}
-                            onClick={() => handleRate(3)}
-                        >
-                            Good
-                        </button>
-                        <button
-                            className={`rating-btn easy ${getSuggestedRating() === 4 ? 'suggested' : ''}`}
-                            onClick={() => handleRate(4)}
-                        >
-                            Easy
-                        </button>
-                    </div>
+          {vocabulary.ipaUs && (
+            <p className="ipa">/{vocabulary.ipaUs}/</p>
+          )}
 
-                    {!isCorrect && (
-                        <button
-                            className="try-again-btn"
-                            onClick={() => {
-                                setShowResult(false);
-                                setInput('');
-                                inputRef.current?.focus();
-                            }}
-                        >
-                            ลองใหม่อีกครั้ง
-                        </button>
-                    )}
-                </div>
-            )}
+          {!isCorrect && (
+            <p className="your-answer">
+              คำตอบของคุณ: <span className="wrong">{input}</span>
+            </p>
+          )}
 
-            <style>{`
+          <button
+            className="speak-btn"
+            onClick={() => speakWord(vocabulary.word)}
+          >
+            🔊 ฟังเสียง
+          </button>
+
+          {/* Rating Buttons */}
+          <div className="rating-buttons">
+            <button
+              className={`rating-btn again ${getSuggestedRating() === 1 ? 'suggested' : ''}`}
+              onClick={() => handleRate(1)}
+            >
+              Again
+            </button>
+            <button
+              className={`rating-btn hard ${getSuggestedRating() === 2 ? 'suggested' : ''}`}
+              onClick={() => handleRate(2)}
+            >
+              Hard
+            </button>
+            <button
+              className={`rating-btn good ${getSuggestedRating() === 3 ? 'suggested' : ''}`}
+              onClick={() => handleRate(3)}
+            >
+              Good
+            </button>
+            <button
+              className={`rating-btn easy ${getSuggestedRating() === 4 ? 'suggested' : ''}`}
+              onClick={() => handleRate(4)}
+            >
+              Easy
+            </button>
+          </div>
+
+          {!isCorrect && (
+            <button
+              className="try-again-btn"
+              onClick={() => {
+                setShowResult(false);
+                setInput('');
+                inputRef.current?.focus();
+              }}
+            >
+              ลองใหม่อีกครั้ง
+            </button>
+          )}
+        </div>
+      )}
+
+      <style>{`
         .typing-mode {
           display: flex;
           flex-direction: column;
@@ -176,6 +215,38 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
           padding: 2rem;
           max-width: 500px;
           margin: 0 auto;
+        }
+
+        .live-timer-container {
+          width: 100%;
+          background: #1e293b;
+          border-radius: 12px;
+          padding: 0.5rem 1rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .live-timer-track {
+          flex: 1;
+          height: 8px;
+          background: #334155;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+
+        .live-timer-bar {
+          height: 100%;
+          border-radius: 4px;
+          transition: width 0.1s linear, background 0.3s;
+        }
+
+        .live-timer-text {
+          font-size: 0.9rem;
+          font-weight: 600;
+          white-space: nowrap;
+          min-width: 50px;
+          text-align: right;
         }
 
         .definition-card {
@@ -222,6 +293,8 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
           border-radius: 12px;
           text-align: center;
           transition: border-color 0.2s;
+          background: white;
+          color: #1e293b;
         }
 
         .word-input:focus {
@@ -349,6 +422,6 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
           background: rgba(255,255,255,0.3);
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }

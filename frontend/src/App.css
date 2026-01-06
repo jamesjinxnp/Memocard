@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Custom CSS Variables */
+/* Custom CSS Variables - Dark Theme (default) */
 @theme {
   --color-primary: #667eea;
   --color-primary-dark: #5a67d8;
@@ -21,6 +21,34 @@
   --color-border: #475569;
 }
 
+/* Light Theme Override */
+html.light {
+  --color-bg-primary: #f8fafc;
+  --color-bg-secondary: #e2e8f0;
+  --color-bg-card: #ffffff;
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+
+  --color-border: #cbd5e1;
+}
+
+/* System Theme - Apply light theme if user prefers light */
+@media (prefers-color-scheme: light) {
+  html:not(.dark):not(.light) {
+    --color-bg-primary: #f8fafc;
+    --color-bg-secondary: #e2e8f0;
+    --color-bg-card: #ffffff;
+
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-muted: #64748b;
+
+    --color-border: #cbd5e1;
+  }
+}
+
 /* Base Styles */
 @layer base {
   * {
@@ -32,6 +60,7 @@
     @apply bg-bg-primary text-text-primary font-sans antialiased;
     min-height: 100vh;
     min-height: 100dvh;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   html {

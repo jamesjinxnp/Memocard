@@ -2,146 +2,195 @@ import { useState, useEffect, useMemo } from 'react';
 import { speakSentence } from '../../services/audio';
 
 interface Vocabulary {
-    id: number;
-    word: string;
-    defTh?: string;
-    defEn?: string;
-    example?: string;
+  id: number;
+  word: string;
+  defTh?: string;
+  defEn?: string;
+  example?: string;
 }
 
 interface ClozeModeProps {
-    vocabulary: Vocabulary;
-    onRate: (rating: number) => void;
+  vocabulary: Vocabulary;
+  onRate: (rating: number) => void;
 }
 
 export default function ClozeMode({ vocabulary, onRate }: ClozeModeProps) {
-    const [input, setInput] = useState('');
-    const [showResult, setShowResult] = useState(false);
-    const [isCorrect, setIsCorrect] = useState(false);
+  const [input, setInput] = useState('');
+  const [showResult, setShowResult] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [startTime, setStartTime] = useState<number>(Date.now());
+  const [responseTime, setResponseTime] = useState<number>(0);
 
-    // Create cloze sentence by replacing the word with blanks
-    const { clozeSentence, blankLength } = useMemo(() => {
-        if (!vocabulary.example) {
-            return { clozeSentence: `Use "${vocabulary.word}" in a sentence.`, blankLength: vocabulary.word.length };
-        }
+  // Create cloze sentence by replacing the word with blanks
+  const { clozeSentence, blankLength } = useMemo(() => {
+    if (!vocabulary.example) {
+      return { clozeSentence: `Use "${vocabulary.word}" in a sentence.`, blankLength: vocabulary.word.length };
+    }
 
-        const regex = new RegExp(`\\b${vocabulary.word}\\b`, 'gi');
-        const sentence = vocabulary.example.replace(regex, (match) => '_'.repeat(match.length));
+    const regex = new RegExp(`\\b${vocabulary.word}\\b`, 'gi');
+    const sentence = vocabulary.example.replace(regex, (match) => '_'.repeat(match.length));
 
-        return {
-            clozeSentence: sentence,
-            blankLength: vocabulary.word.length
-        };
-    }, [vocabulary]);
-
-    useEffect(() => {
-        setInput('');
-        setShowResult(false);
-        setIsCorrect(false);
-    }, [vocabulary.id]);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-
-        const userAnswer = input.toLowerCase().trim();
-        const correctAnswer = vocabulary.word.toLowerCase().trim();
-        const correct = userAnswer === correctAnswer;
-
-        setIsCorrect(correct);
-        setShowResult(true);
-
-        if (correct && vocabulary.example) {
-            speakSentence(vocabulary.example);
-        }
+    return {
+      clozeSentence: sentence,
+      blankLength: vocabulary.word.length
     };
+  }, [vocabulary]);
 
-    return (
-        <div className="cloze-mode">
-            {/* Cloze Card */}
-            <div className="cloze-card">
-                <h2>เติมคำในช่องว่าง</h2>
+  useEffect(() => {
+    setInput('');
+    setShowResult(false);
+    setIsCorrect(false);
+    setStartTime(Date.now());
+    setResponseTime(0);
+  }, [vocabulary.id]);
 
-                <p className="cloze-sentence">{clozeSentence}</p>
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-                {vocabulary.defTh && (
-                    <p className="hint">💡 {vocabulary.defTh}</p>
-                )}
+    const userAnswer = input.toLowerCase().trim();
+    const correctAnswer = vocabulary.word.toLowerCase().trim();
+    const correct = userAnswer === correctAnswer;
+    const elapsed = (Date.now() - startTime) / 1000;
 
-                <p className="word-length">({blankLength} ตัวอักษร)</p>
-            </div>
+    setIsCorrect(correct);
+    setShowResult(true);
+    setResponseTime(elapsed);
 
-            {/* Input Form */}
-            {!showResult ? (
-                <form onSubmit={handleSubmit} className="input-form">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="พิมพ์คำที่หายไป..."
-                        className="word-input"
-                        autoComplete="off"
-                        autoCapitalize="off"
-                        spellCheck="false"
-                        autoFocus
-                    />
-                    <button type="submit" className="submit-btn" disabled={!input.trim()}>
-                        ตรวจคำตอบ
-                    </button>
-                </form>
-            ) : (
-                /* Result */
-                <div className={`result ${isCorrect ? 'correct' : 'incorrect'}`}>
-                    <div className="result-icon">{isCorrect ? '✅' : '❌'}</div>
+    if (correct && vocabulary.example) {
+      speakSentence(vocabulary.example);
+    }
+  };
 
-                    <p className="correct-word">{vocabulary.word}</p>
+  // Time-based rating: Again (wrong or >60s), Hard (25-60s), Good (10-25s), Easy (<10s)
+  const getSuggestedRating = () => {
+    if (!isCorrect) return 1; // Again - wrong answer
+    if (responseTime > 60) return 1; // Again - took too long
+    if (responseTime > 25) return 2; // Hard
+    if (responseTime > 10) return 3; // Good
+    return 4; // Easy - fast response
+  };
 
-                    {vocabulary.example && (
-                        <p className="full-sentence">{vocabulary.example}</p>
-                    )}
+  // Live timer
+  const [liveTime, setLiveTime] = useState(0);
+  useEffect(() => {
+    if (showResult) return;
+    const interval = setInterval(() => {
+      setLiveTime((Date.now() - startTime) / 1000);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [startTime, showResult]);
 
-                    {!isCorrect && (
-                        <p className="your-answer">
-                            คำตอบของคุณ: <span className="wrong">{input}</span>
-                        </p>
-                    )}
+  const getTimerColor = () => {
+    if (liveTime < 10) return '#22c55e'; // Easy - green
+    if (liveTime < 25) return '#eab308'; // Good - yellow
+    if (liveTime < 60) return '#f97316'; // Hard - orange
+    return '#ef4444'; // Again - red
+  };
 
-                    <button
-                        className="speak-btn"
-                        onClick={() => vocabulary.example && speakSentence(vocabulary.example)}
-                    >
-                        🔊 ฟังประโยค
-                    </button>
+  return (
+    <div className="cloze-mode">
+      {/* Live Timer Bar */}
+      {!showResult && (
+        <div className="live-timer-container">
+          <div className="live-timer-track">
+            <div className="live-timer-bar" style={{
+              width: `${Math.min((liveTime / 60) * 100, 100)}%`,
+              background: getTimerColor()
+            }} />
+          </div>
+          <span className="live-timer-text" style={{ color: getTimerColor() }}>
+            {Math.floor(liveTime)}s
+          </span>
+        </div>
+      )}
 
-                    <div className="rating-buttons">
-                        <button
-                            className="rating-btn again"
-                            onClick={() => onRate(1)}
-                        >
-                            Again
-                        </button>
-                        <button
-                            className="rating-btn hard"
-                            onClick={() => onRate(2)}
-                        >
-                            Hard
-                        </button>
-                        <button
-                            className="rating-btn good"
-                            onClick={() => onRate(3)}
-                        >
-                            Good
-                        </button>
-                        <button
-                            className="rating-btn easy"
-                            onClick={() => onRate(4)}
-                        >
-                            Easy
-                        </button>
-                    </div>
-                </div>
-            )}
+      {/* Cloze Card */}
+      <div className="cloze-card">
+        <h2>เติมคำในช่องว่าง</h2>
 
-            <style>{`
+        <p className="cloze-sentence">{clozeSentence}</p>
+
+        {vocabulary.defTh && (
+          <p className="hint">💡 {vocabulary.defTh}</p>
+        )}
+
+        <p className="word-length">({blankLength} ตัวอักษร)</p>
+      </div>
+
+      {/* Input Form */}
+      {!showResult ? (
+        <form onSubmit={handleSubmit} className="input-form">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="พิมพ์คำที่หายไป..."
+            className="word-input"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            autoFocus
+          />
+          <button type="submit" className="submit-btn" disabled={!input.trim()}>
+            ตรวจคำตอบ
+          </button>
+        </form>
+      ) : (
+        /* Result */
+        <div className={`result ${isCorrect ? 'correct' : 'incorrect'}`}>
+          <div className="result-icon">{isCorrect ? '✅' : '❌'}</div>
+
+          <p className="correct-word">{vocabulary.word}</p>
+
+          {vocabulary.example && (
+            <p className="full-sentence">{vocabulary.example}</p>
+          )}
+
+          {!isCorrect && (
+            <p className="your-answer">
+              คำตอบของคุณ: <span className="wrong">{input}</span>
+            </p>
+          )}
+
+          <button
+            className="speak-btn"
+            onClick={() => vocabulary.example && speakSentence(vocabulary.example)}
+          >
+            🔊 ฟังประโยค
+          </button>
+
+          <p className="time-display">⏱️ {responseTime.toFixed(1)}s</p>
+
+          <div className="rating-buttons">
+            <button
+              className={`rating-btn again ${getSuggestedRating() === 1 ? 'suggested' : ''}`}
+              onClick={() => onRate(1)}
+            >
+              Again
+            </button>
+            <button
+              className={`rating-btn hard ${getSuggestedRating() === 2 ? 'suggested' : ''}`}
+              onClick={() => onRate(2)}
+            >
+              Hard
+            </button>
+            <button
+              className={`rating-btn good ${getSuggestedRating() === 3 ? 'suggested' : ''}`}
+              onClick={() => onRate(3)}
+            >
+              Good
+            </button>
+            <button
+              className={`rating-btn easy ${getSuggestedRating() === 4 ? 'suggested' : ''}`}
+              onClick={() => onRate(4)}
+            >
+              Easy
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style>{`
         .cloze-mode {
           display: flex;
           flex-direction: column;
@@ -150,6 +199,38 @@ export default function ClozeMode({ vocabulary, onRate }: ClozeModeProps) {
           padding: 2rem;
           max-width: 500px;
           margin: 0 auto;
+        }
+
+        .live-timer-container {
+          width: 100%;
+          background: #1e293b;
+          border-radius: 12px;
+          padding: 0.5rem 1rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .live-timer-track {
+          flex: 1;
+          height: 8px;
+          background: #334155;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+
+        .live-timer-bar {
+          height: 100%;
+          border-radius: 4px;
+          transition: width 0.1s linear, background 0.3s;
+        }
+
+        .live-timer-text {
+          font-size: 0.9rem;
+          font-weight: 600;
+          white-space: nowrap;
+          min-width: 50px;
+          text-align: right;
         }
 
         .cloze-card {
@@ -200,6 +281,8 @@ export default function ClozeMode({ vocabulary, onRate }: ClozeModeProps) {
           border: 2px solid #e2e8f0;
           border-radius: 12px;
           text-align: center;
+          background: white;
+          color: #1e293b;
         }
 
         .word-input:focus {
@@ -295,7 +378,9 @@ export default function ClozeMode({ vocabulary, onRate }: ClozeModeProps) {
         .rating-btn:hover {
           background: rgba(255,255,255,0.2);
         }
+        .rating-btn.suggested { transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .time-display { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }

@@ -226,6 +226,7 @@ const study = new Elysia({ prefix: '/study' })
                 t.Literal('multiple_choice'),
                 t.Literal('cloze'),
                 t.Literal('spelling_bee'),
+                t.Literal('audio_choice'),
             ]),
             responseTime: t.Optional(t.Number()),
         })
@@ -282,6 +283,7 @@ const study = new Elysia({ prefix: '/study' })
                 t.Literal('multiple_choice'),
                 t.Literal('cloze'),
                 t.Literal('spelling_bee'),
+                t.Literal('audio_choice'),
             ]),
             limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20 })),
         })

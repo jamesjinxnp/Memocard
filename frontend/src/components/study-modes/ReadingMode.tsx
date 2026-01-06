@@ -145,14 +145,6 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
               className="absolute inset-0 rounded-2xl p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-violet-600 to-purple-700 shadow-xl"
               style={{ backfaceVisibility: 'hidden' }}
             >
-              <button
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-                onClick={(e) => { e.stopPropagation(); handleSpeak(); }}
-                disabled={isPlaying}
-              >
-                <Volume2 className={`size-5 ${isPlaying ? 'animate-pulse' : ''}`} />
-              </button>
-
               <h1 className="text-4xl md:text-5xl font-bold mb-2 text-center">
                 {displayVocab.word}
               </h1>
@@ -162,10 +154,18 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
               )}
 
               {displayVocab.type && (
-                <span className="px-3 py-1 rounded-full bg-white/20 text-sm font-medium">
+                <span className="px-3 py-1 rounded-full bg-white/20 text-sm font-medium mb-4">
                   {displayVocab.type}
                 </span>
               )}
+
+              <button
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                onClick={(e) => { e.stopPropagation(); handleSpeak(); }}
+                disabled={isPlaying}
+              >
+                <Volume2 className={`size-6 ${isPlaying ? 'animate-pulse' : ''}`} />
+              </button>
 
               <p className="absolute bottom-4 text-sm opacity-70">แตะเพื่อดูคำตอบ</p>
             </div>
