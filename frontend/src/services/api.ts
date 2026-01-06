@@ -88,4 +88,25 @@ export const vocabularyApi = {
         api.get(`/vocabulary/random/${count}${cefr ? `?cefr=${cefr}` : ''}${exclude?.length ? `&exclude=${exclude.join(',')}` : ''}`),
 };
 
+// ==================== USER API ====================
+export const userApi = {
+    updateProfile: (data: { name: string }) =>
+        api.put('/user/profile', data),
+
+    updateEmail: (data: { email: string; password: string }) =>
+        api.put('/user/email', data),
+
+    updatePassword: (data: { currentPassword: string; newPassword: string }) =>
+        api.put('/user/password', data),
+
+    updatePreferences: (data: { preferences: { theme?: 'dark' | 'light'; dailyNewCards?: number } }) =>
+        api.put('/user/preferences', data),
+
+    resetLearning: () =>
+        api.post('/user/reset-learning'),
+
+    deleteAccount: (data: { password: string }) =>
+        api.delete('/user', { data }),
+};
+
 export default api;

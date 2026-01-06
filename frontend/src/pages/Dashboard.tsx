@@ -5,7 +5,7 @@ import { useAuthStore, useStudyStore } from '@/stores';
 import { studyApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { BookOpen, Keyboard, Headphones, Target, FileText, Sparkles, LogOut, Plus } from 'lucide-react';
+import { BookOpen, Keyboard, Headphones, Target, FileText, Sparkles, LogOut, Plus, Settings } from 'lucide-react';
 import ProgressCharts from '@/components/ProgressCharts';
 
 export default function Dashboard() {
@@ -53,6 +53,9 @@ export default function Dashboard() {
             <Button variant="default" size="sm" onClick={() => navigate('/browse')}>
               <Plus className="size-4" />
               <span className="hidden sm:inline">Add Cards</span>
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+              <Settings className="size-5" />
             </Button>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut className="size-4" />

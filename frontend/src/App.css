@@ -96,3 +96,117 @@ html.light {
     @apply bg-gradient-to-br from-primary to-secondary bg-clip-text text-transparent;
   }
 }
+
+/* Light variant for Tailwind */
+@custom-variant light (&:where(html.light, html.light *));
+
+/* Light mode - comprehensive component overrides */
+html.light {
+
+  /* Background colors */
+  .bg-slate-900 {
+    background-color: #f8fafc !important;
+  }
+
+  .bg-slate-800 {
+    background-color: #ffffff !important;
+  }
+
+  .bg-slate-800\/50 {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+  }
+
+  /* Text colors */
+  .text-slate-100 {
+    color: #0f172a !important;
+  }
+
+  .text-slate-200 {
+    color: #1e293b !important;
+  }
+
+  .text-slate-300 {
+    color: #334155 !important;
+  }
+
+  .text-slate-400 {
+    color: #64748b !important;
+  }
+
+  .text-slate-500 {
+    color: #64748b !important;
+  }
+
+  /* Border colors */
+  .border-slate-600 {
+    border-color: #cbd5e1 !important;
+  }
+
+  .border-slate-700 {
+    border-color: #e2e8f0 !important;
+  }
+
+  .border-slate-700\/50 {
+    border-color: rgba(226, 232, 240, 0.8) !important;
+  }
+
+  .border-slate-800 {
+    border-color: #e2e8f0 !important;
+  }
+
+  /* Hover states */
+  .hover\:bg-slate-800:hover {
+    background-color: #f1f5f9 !important;
+  }
+
+  .hover\:bg-slate-800\/50:hover {
+    background-color: rgba(241, 245, 249, 0.8) !important;
+  }
+
+  .hover\:text-white:hover {
+    color: #0f172a !important;
+  }
+
+  /* Header */
+  .bg-slate-900\/95 {
+    background-color: rgba(248, 250, 252, 0.95) !important;
+  }
+
+  .bg-slate-900\/75 {
+    background-color: rgba(248, 250, 252, 0.75) !important;
+  }
+
+  /* Cards */
+  [data-slot="card"] {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  /* Inputs */
+  [data-slot="input"] {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+
+  [data-slot="input"]::placeholder {
+    color: #94a3b8 !important;
+  }
+
+  /* Danger zone special styling */
+  .border-red-900\/50 {
+    border-color: rgba(239, 68, 68, 0.3) !important;
+  }
+
+  .border-amber-600 {
+    border-color: #d97706 !important;
+  }
+
+  .text-amber-400 {
+    color: #b45309 !important;
+  }
+
+  .hover\:bg-amber-900\/20:hover {
+    background-color: rgba(180, 83, 9, 0.1) !important;
+  }
+}

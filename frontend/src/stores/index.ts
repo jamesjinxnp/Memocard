@@ -79,3 +79,44 @@ export const useStudyStore = create<StudyState>((set) => ({
     setStats: (stats) => set({ stats }),
 }));
 
+// ==================== THEME STORE ====================
+type ThemeMode = 'dark' | 'light' | 'system';
+
+interface ThemeState {
+    theme: ThemeMode;
+    setTheme: (theme: ThemeMode) => void;
+    applyTheme: () => void;
+}
+
+export const useThemeStore = create<ThemeState>()(
+    persist(
+        (set, get) => ({
+            theme: 'dark',
+            setTheme: (theme) => {
+                set({ theme });
+                // Apply theme immediately
+                get().applyTheme();
+            },
+            applyTheme: () => {
+                const { theme } = get();
+                const root = document.documentElement;
+
+                root.classList.remove('dark', 'light');
+
+                if (theme === 'system') {
+                    // Let CSS handle it via media query
+                    return;
+                }
+
+                root.classList.add(theme);
+            },
+        }),
+        {
+            name: 'theme-storage',
+            onRehydrateStorage: () => (state) => {
+                // Apply theme when store is rehydrated
+                state?.applyTheme();
+            },
+        }
+    )
+);

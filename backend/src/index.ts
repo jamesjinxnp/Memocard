@@ -4,6 +4,7 @@ import { cors } from '@elysiajs/cors';
 import authRoutes from './routes/auth';
 import studyRoutes from './routes/study';
 import vocabularyRoutes from './routes/vocabulary';
+import userRoutes from './routes/user';
 
 // Create Elysia app
 const app = new Elysia()
@@ -39,6 +40,7 @@ const app = new Elysia()
     .use(authRoutes)
     .use(studyRoutes)
     .use(vocabularyRoutes)
+    .use(userRoutes)
 
     // ==================== ERROR HANDLER ====================
     .onError(({ error }) => {
