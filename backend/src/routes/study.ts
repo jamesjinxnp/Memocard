@@ -370,12 +370,13 @@ const study = new Elysia({ prefix: '/study' })
             .groupBy(cards.state);
 
         // Reviews today
+        const todayStartTimestamp = Math.floor(todayStart.getTime() / 1000);
         const reviewsToday = await db
             .select({ count: sql<number>`count(*)` })
             .from(reviewLogs)
             .where(and(
                 eq(reviewLogs.userId, user.userId),
-                sql`${reviewLogs.reviewedAt} >= ${todayStart}`
+                sql`${reviewLogs.reviewedAt} >= ${todayStartTimestamp}`
             ));
 
         // Due today
@@ -387,6 +388,21 @@ const study = new Elysia({ prefix: '/study' })
                 lte(cards.due, now)
             ));
 
+        // Next due card (for countdown timer)
+        const nextDueCard = await db
+            .select({ due: cards.due })
+            .from(cards)
+            .where(and(
+                eq(cards.userId, user.userId),
+                sql`${cards.due} > ${Math.floor(now.getTime() / 1000)}`
+            ))
+            .orderBy(asc(cards.due))
+            .limit(1);
+
+        const nextDueTime = nextDueCard[0]?.due
+            ? new Date(nextDueCard[0].due).toISOString()
+            : null;
+
         return {
             totalCards: totalCards[0]?.count || 0,
             cardsByState: cardsByState.reduce((acc, { state, count }) => {
@@ -396,6 +412,7 @@ const study = new Elysia({ prefix: '/study' })
             }, {} as Record<string, number>),
             reviewsToday: reviewsToday[0]?.count || 0,
             dueToday: dueToday[0]?.count || 0,
+            nextDueTime,
         };
     })
 
@@ -408,33 +425,44 @@ const study = new Elysia({ prefix: '/study' })
 
         const now = new Date();
 
-        // Get last 7 days data
-        const days = 7;
+        // Get last 270 days data (9 months for heatmap)
+        const days = 270;
         const dailyStats = [];
 
+        // Batch query for all days at once for better performance
+        const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days + 1);
+
+        const allReviews = await db
+            .select({
+                date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch')`,
+                count: sql<number>`count(*)`,
+                correct: sql<number>`sum(case when rating >= 3 then 1 else 0 end)`
+            })
+            .from(reviewLogs)
+            .where(and(
+                eq(reviewLogs.userId, user.userId),
+                sql`${reviewLogs.reviewedAt} >= ${Math.floor(startDate.getTime() / 1000)}`
+            ))
+            .groupBy(sql`date(${reviewLogs.reviewedAt}, 'unixepoch')`);
+
+        // Create a map for quick lookup
+        const reviewsMap = new Map<string, { count: number; correct: number }>();
+        allReviews.forEach(r => {
+            reviewsMap.set(r.date, { count: r.count, correct: r.correct || 0 });
+        });
+
+        // Build daily stats array
         for (let i = days - 1; i >= 0; i--) {
             const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-            const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i + 1);
+            const dateStr = dayStart.toISOString().split('T')[0];
 
-            // Reviews on this day
-            const dayReviews = await db
-                .select({
-                    count: sql<number>`count(*)`,
-                    correct: sql<number>`sum(case when rating >= 3 then 1 else 0 end)`
-                })
-                .from(reviewLogs)
-                .where(and(
-                    eq(reviewLogs.userId, user.userId),
-                    sql`${reviewLogs.reviewedAt} >= ${dayStart}`,
-                    sql`${reviewLogs.reviewedAt} < ${dayEnd}`
-                ));
-
-            const reviews = dayReviews[0]?.count || 0;
-            const correct = dayReviews[0]?.correct || 0;
+            const dayData = reviewsMap.get(dateStr) || { count: 0, correct: 0 };
+            const reviews = dayData.count;
+            const correct = dayData.correct;
             const accuracy = reviews > 0 ? Math.round((correct / reviews) * 100) : 0;
 
             dailyStats.push({
-                date: dayStart.toISOString().split('T')[0],
+                date: dateStr,
                 dayName: dayStart.toLocaleDateString('en-US', { weekday: 'short' }),
                 reviews,
                 correct,
@@ -442,7 +470,7 @@ const study = new Elysia({ prefix: '/study' })
             });
         }
 
-        // Calculate streak (consecutive days with reviews)
+        // Calculate streak (consecutive days with reviews, checking from today backwards)
         let streak = 0;
         for (let i = dailyStats.length - 1; i >= 0; i--) {
             if (dailyStats[i].reviews > 0) {
@@ -453,15 +481,16 @@ const study = new Elysia({ prefix: '/study' })
             }
         }
 
-        // Overall accuracy (last 7 days)
-        const totalReviews = dailyStats.reduce((sum, d) => sum + d.reviews, 0);
-        const totalCorrect = dailyStats.reduce((sum, d) => sum + d.correct, 0);
+        // Overall accuracy (last 7 days for display)
+        const last7Days = dailyStats.slice(-7);
+        const totalReviews = last7Days.reduce((sum, d) => sum + d.reviews, 0);
+        const totalCorrect = last7Days.reduce((sum, d) => sum + d.correct, 0);
         const overallAccuracy = totalReviews > 0 ? Math.round((totalCorrect / totalReviews) * 100) : 0;
 
-        // Best day
-        const bestDay = dailyStats.reduce((best, d) =>
+        // Best day (last 7 days)
+        const bestDay = last7Days.reduce((best, d) =>
             d.reviews > (best?.reviews || 0) ? d : best
-            , dailyStats[0]);
+            , last7Days[0]);
 
         return {
             streak,

@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore, useStudyStore } from '@/stores';
 import { studyApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { BookOpen, Keyboard, Headphones, Target, FileText, Sparkles, LogOut, Plus, Settings } from 'lucide-react';
 import ProgressCharts from '@/components/ProgressCharts';
 
@@ -66,43 +65,10 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-8 space-y-8">
-        {/* Stats Section */}
+        {/* Progress Section - Heatmap + Today's Stats */}
         <section>
-          <h2 className="text-lg font-semibold text-slate-100 mb-4">Today's Progress</h2>
-          <div className="grid grid-cols-3 gap-3 md:gap-4">
-            <Card className="border-l-4 border-l-red-500">
-              <CardContent className="p-4 md:p-6 text-center">
-                <div className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  {statsData?.dueToday || 0}
-                </div>
-                <div className="text-xs md:text-sm text-slate-400 mt-1">Cards Due</div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-4 md:p-6 text-center">
-                <div className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  {statsData?.reviewsToday || 0}
-                </div>
-                <div className="text-xs md:text-sm text-slate-400 mt-1">Reviews Today</div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="p-4 md:p-6 text-center">
-                <div className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                  {statsData?.totalCards || 0}
-                </div>
-                <div className="text-xs md:text-sm text-slate-400 mt-1">Total Cards</div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        {/* Progress Charts Section */}
-        <section>
-          <h2 className="text-lg font-semibold text-slate-100 mb-4">Weekly Progress</h2>
-          <ProgressCharts />
+          <h2 className="text-lg font-semibold text-slate-100 mb-4">Your Progress</h2>
+          <ProgressCharts todayStats={statsData} />
         </section>
 
         {/* Study Modes Section */}
