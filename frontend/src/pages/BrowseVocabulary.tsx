@@ -29,23 +29,31 @@ const CEFR_COLORS: Record<string, string> = {
     C1: 'bg-red-500',
 };
 
+const DECK_FILTERS = [
+    { id: null, name: 'All' },
+    { id: 'oxford3000', name: 'Oxford 3000' },
+    { id: 'oxford5000', name: 'Oxford 5000' },
+    { id: 'Toeic', name: 'TOEIC' },
+];
+
 export default function BrowseVocabulary() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCefr, setSelectedCefr] = useState<string | null>(null);
+    const [selectedDeck, setSelectedDeck] = useState<string | null>(null);
     const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
 
     // Fetch vocabulary
     const { data, isLoading } = useQuery({
-        queryKey: ['vocabulary', selectedCefr, searchQuery],
+        queryKey: ['vocabulary', selectedCefr, selectedDeck, searchQuery],
         queryFn: async () => {
             if (searchQuery.trim()) {
                 const response = await vocabularyApi.search(searchQuery);
                 return response.data;
             }
-            const response = await vocabularyApi.getAll(1, 50, selectedCefr || undefined);
+            const response = await vocabularyApi.getAll(1, 50, selectedCefr || undefined, selectedDeck || undefined);
             return response.data;
         },
     });
@@ -95,26 +103,43 @@ export default function BrowseVocabulary() {
                             className="pl-10"
                         />
                     </div>
+                </div>
 
-                    <div className="flex gap-2 flex-wrap">
+                {/* Deck Filter Tabs */}
+                <div className="flex gap-2 flex-wrap">
+                    <span className="text-sm text-slate-400 mr-2 self-center">Deck:</span>
+                    {DECK_FILTERS.map((deck) => (
                         <Button
-                            variant={selectedCefr === null ? 'default' : 'outline'}
+                            key={deck.id || 'all'}
+                            variant={selectedDeck === deck.id ? 'default' : 'outline'}
                             size="sm"
-                            onClick={() => setSelectedCefr(null)}
+                            onClick={() => setSelectedDeck(deck.id)}
                         >
-                            All
+                            {deck.name}
                         </Button>
-                        {CEFR_LEVELS.map((level) => (
-                            <Button
-                                key={level}
-                                variant={selectedCefr === level ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => setSelectedCefr(level)}
-                            >
-                                {level}
-                            </Button>
-                        ))}
-                    </div>
+                    ))}
+                </div>
+
+                {/* CEFR Level Filter */}
+                <div className="flex gap-2 flex-wrap">
+                    <span className="text-sm text-slate-400 mr-2 self-center">CEFR:</span>
+                    <Button
+                        variant={selectedCefr === null ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedCefr(null)}
+                    >
+                        All
+                    </Button>
+                    {CEFR_LEVELS.map((level) => (
+                        <Button
+                            key={level}
+                            variant={selectedCefr === level ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setSelectedCefr(level)}
+                        >
+                            {level}
+                        </Button>
+                    ))}
                 </div>
 
                 {/* Loading State */}

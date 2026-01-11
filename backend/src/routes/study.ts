@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { nanoid } from '../utils/nanoid';
 import { db } from '../db/client';
 import { cards, vocabulary, reviewLogs, studySessions } from '../db/schema';
-import { eq, and, lte, asc, sql } from 'drizzle-orm';
+import { eq, and, lte, asc, sql, like, gte } from 'drizzle-orm';
 import { getUserFromHeader } from '../middleware/auth';
 import {
     createNewCard,
@@ -71,6 +71,175 @@ const study = new Elysia({ prefix: '/study' })
     }, {
         query: t.Object({
             limit: t.Optional(t.String()),
+        })
+    })
+
+    // ==================== GET STUDY QUEUE (Tree Model) ====================
+    // Priority: Relearning → Learning → Review → New
+    .get('/queue', async ({ user, set, query }) => {
+        if (!user) {
+            set.status = 401;
+            return { error: 'Unauthorized' };
+        }
+
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dailyNewLimit = parseInt(query.dailyLimit || '20');
+        const deck = query.deck;
+
+        // Build deck filter if specified (return always-true condition if no deck)
+        const deckFilter = deck ? like(vocabulary.tag, `%${deck}%`) : sql`1=1`;
+
+        // 0. Relearning cards (forgot - highest priority!)
+        const relearningCards = await db
+            .select({ card: cards, vocab: vocabulary })
+            .from(cards)
+            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+            .where(and(
+                eq(cards.userId, user.userId),
+                eq(cards.state, 3), // Relearning
+                lte(cards.due, now),
+                deckFilter
+            ))
+            .orderBy(asc(cards.due))
+            .limit(50);
+
+        // 1. Learning cards (seedlings) - need frequent attention
+        const learningCards = await db
+            .select({ card: cards, vocab: vocabulary })
+            .from(cards)
+            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+            .where(and(
+                eq(cards.userId, user.userId),
+                eq(cards.state, 1), // Learning
+                lte(cards.due, now),
+                deckFilter
+            ))
+            .orderBy(asc(cards.due))
+            .limit(50);
+
+        // 2. Review cards (trees needing maintenance)
+        const reviewCards = await db
+            .select({ card: cards, vocab: vocabulary })
+            .from(cards)
+            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+            .where(and(
+                eq(cards.userId, user.userId),
+                eq(cards.state, 2), // Review
+                lte(cards.due, now),
+                deckFilter
+            ))
+            .orderBy(asc(cards.due))
+            .limit(50);
+
+        // 3. Count NEW cards (state=0) that were started today (to track daily quota)
+        // We count cards that transitioned FROM new state today (not all cards created)
+        const newCardsTodayResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(cards)
+            .where(and(
+                eq(cards.userId, user.userId),
+                eq(cards.state, 0), // Still in New state
+                gte(cards.createdAt, todayStart)
+            ));
+        // Count is cards created today that are STILL new (not yet studied)
+        // For quota, we want cards that WERE new but now are Learning/Review
+        const studiedTodayResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(cards)
+            .where(and(
+                eq(cards.userId, user.userId),
+                sql`${cards.state} > 0`, // Learning, Review, or Relearning
+                gte(cards.createdAt, todayStart) // Created today
+            ));
+        const studiedToday = studiedTodayResult[0]?.count || 0;
+
+        // 4. Calculate remaining quota for new cards
+        // Simple: just limit new cards to dailyNewLimit per session
+        const hasAnyDueCards = relearningCards.length > 0 || learningCards.length > 0 || reviewCards.length > 0;
+
+        // 5. New cards limit logic:
+        // - Always respect dailyNewLimit from user settings
+        // - If there are due cards, we still show new cards but user might want to focus on reviews first
+        const effectiveLimit = dailyNewLimit;
+
+        const newCards = await db
+            .select({ card: cards, vocab: vocabulary })
+            .from(cards)
+            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+            .where(and(
+                eq(cards.userId, user.userId),
+                eq(cards.state, 0), // New
+                deckFilter
+            ))
+            .orderBy(asc(cards.createdAt))
+            .limit(effectiveLimit);
+
+        // 6. Count total New cards available
+        const totalNewResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(cards)
+            .where(and(
+                eq(cards.userId, user.userId),
+                eq(cards.state, 0)
+            ));
+        const totalNew = totalNewResult[0]?.count || 0;
+
+        // Format cards for response
+        const formatCards = (items: { card: typeof cards.$inferSelect; vocab: typeof vocabulary.$inferSelect }[]) =>
+            items.map(({ card, vocab }) => ({
+                id: card.id,
+                vocabulary: vocab,
+                state: card.state,
+            }));
+
+        // Count ALL cards by state (not just due) for Progress UI
+        const totalRelearningResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(cards)
+            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+            .where(and(eq(cards.userId, user.userId), eq(cards.state, 3), deckFilter));
+        const totalLearningResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(cards)
+            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+            .where(and(eq(cards.userId, user.userId), eq(cards.state, 1), deckFilter));
+        const totalReviewResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(cards)
+            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+            .where(and(eq(cards.userId, user.userId), eq(cards.state, 2), deckFilter));
+
+        return {
+            relearning: formatCards(relearningCards), // ลืมแล้ว ต้องรีบกลับมา
+            learning: formatCards(learningCards),     // รดน้ำต้นอ่อน
+            due: formatCards(reviewCards),            // บำรุงต้นไม้
+            new: formatCards(newCards),               // ปลูกใหม่ (ตาม quota)
+            counts: {
+                relearning: relearningCards.length,
+                learning: learningCards.length,
+                due: reviewCards.length,
+                new: newCards.length,
+                totalNew: totalNew,
+            },
+            // Total cards in each state (for DeckPage Progress UI)
+            totalByState: {
+                relearning: totalRelearningResult[0]?.count || 0,
+                learning: totalLearningResult[0]?.count || 0,
+                review: totalReviewResult[0]?.count || 0,
+                new: totalNew,
+            },
+            quota: {
+                daily: dailyNewLimit,
+                used: studiedToday,
+                remaining: effectiveLimit,
+            },
+            needMoreSeeds: totalNew < 10,
+        };
+    }, {
+        query: t.Object({
+            dailyLimit: t.Optional(t.String()),
+            deck: t.Optional(t.String()),
         })
     })
 
@@ -158,6 +327,93 @@ const study = new Elysia({ prefix: '/study' })
         })
     })
 
+    // ==================== BULK LEARN FROM DECK (Add Seeds) ====================
+    .post('/learn-deck', async ({ user, set, body }) => {
+        if (!user) {
+            set.status = 401;
+            return { error: 'Unauthorized' };
+        }
+
+        const { deck, limit = 20 } = body;
+        const now = new Date();
+
+        // Check how many New cards (seeds) user already has
+        const existingNewCountResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(cards)
+            .where(and(
+                eq(cards.userId, user.userId),
+                eq(cards.state, 0)
+            ));
+        const existingNewCount = existingNewCountResult[0]?.count || 0;
+
+        // If already have enough seeds, don't add more
+        const targetSeeds = 20;
+        if (existingNewCount >= targetSeeds) {
+            return {
+                message: `Already have ${existingNewCount} new cards (seeds) ready to learn`,
+                added: 0,
+                existing: existingNewCount,
+            };
+        }
+
+        // Calculate how many seeds to add
+        const toAdd = Math.min(limit, targetSeeds - existingNewCount);
+
+        // Get vocabulary from deck that user doesn't have cards for yet
+        const existingCardVocabIds = await db
+            .select({ vocabularyId: cards.vocabularyId })
+            .from(cards)
+            .where(eq(cards.userId, user.userId));
+
+        const existingIds = new Set(existingCardVocabIds.map(c => c.vocabularyId));
+
+        // Get vocabulary matching deck tag
+        const deckVocab = await db
+            .select()
+            .from(vocabulary)
+            .where(like(vocabulary.tag, `%${deck}%`))
+            .limit(toAdd + existingIds.size); // Fetch extra to account for filtering
+
+        // Filter out vocabulary user already has
+        const newVocab = deckVocab.filter(v => !existingIds.has(v.id)).slice(0, toAdd);
+
+        if (newVocab.length === 0) {
+            return {
+                message: 'No new vocabulary to add from this deck',
+                added: 0,
+            };
+        }
+
+        // Create cards for each vocabulary
+        const cardsToInsert = newVocab.map(vocab => {
+            const fsrsCard = createNewCard(now);
+            const cardData = fsrsCardToDb(fsrsCard);
+            return {
+                id: nanoid(),
+                userId: user.userId,
+                vocabularyId: vocab.id,
+                ...cardData,
+                createdAt: now,
+            };
+        });
+
+        // Batch insert cards
+        await db.insert(cards).values(cardsToInsert);
+
+        set.status = 201;
+        return {
+            message: `Added ${cardsToInsert.length} cards from ${deck} deck`,
+            added: cardsToInsert.length,
+            vocabulary: newVocab.map(v => ({ id: v.id, word: v.word })),
+        };
+    }, {
+        body: t.Object({
+            deck: t.String(),
+            limit: t.Optional(t.Number({ minimum: 1, maximum: 500, default: 50 })),
+        })
+    })
+
     // ==================== SUBMIT REVIEW ====================
     .post('/review', async ({ user, set, body }) => {
         if (!user) {
@@ -226,7 +482,9 @@ const study = new Elysia({ prefix: '/study' })
                 t.Literal('multiple_choice'),
                 t.Literal('cloze'),
                 t.Literal('spelling_bee'),
+                t.Literal('spelling'),
                 t.Literal('audio_choice'),
+                t.Literal('multi'),
             ]),
             responseTime: t.Optional(t.Number()),
         })

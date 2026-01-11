@@ -59,7 +59,7 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const elapsed = (Date.now() - startTime) / 1000;
     setResponseTime(elapsed);
@@ -70,7 +70,14 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
 
     setIsCorrect(correct);
     setShowResult(true);
-    speakWord(vocabulary.word);
+
+    // Audio feedback: play slow when wrong to help learn pronunciation
+    if (!correct) {
+      // Play slow pronunciation for wrong answers
+      await speakWord(vocabulary.word, true);
+    } else {
+      speakWord(vocabulary.word);
+    }
   };
 
   // Time-based rating: Again (wrong or >45s or plays>5), Hard (25-45s), Good (10-25s), Easy (<10s)
@@ -165,6 +172,24 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
       {showResult && (
         <div className={`result-card ${isCorrect ? 'correct' : 'incorrect'}`}>
           <div className="result-icon">{isCorrect ? '✅' : '❌'}</div>
+
+          {/* Show comparison when wrong */}
+          {!isCorrect && (
+            <div className="wrong-comparison">
+              <div className="your-answer">
+                <span className="label">คุณพิมพ์:</span>
+                <span className="answer wrong">{input || '(ว่าง)'}</span>
+              </div>
+              <div className="correct-answer">
+                <span className="label">คำตอบที่ถูก:</span>
+                <span className="answer correct-text">{vocabulary.word}</span>
+                <button className="replay-btn" onClick={() => speakWord(vocabulary.word, true)}>
+                  🔊 ฟังช้าๆ
+                </button>
+              </div>
+            </div>
+          )}
+
           <h1 className="word">{vocabulary.word}</h1>
 
           {vocabulary.ipaUs && (
@@ -473,6 +498,64 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
         .rating-btn.easy { background: #3b82f6; color: white; }
         .rating-btn.suggested { transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
         .time-display { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; margin-top: 1rem; }
+
+        /* Wrong answer comparison styles */
+        .wrong-comparison {
+          background: #fef2f2;
+          border: 2px solid #ef4444;
+          border-radius: 12px;
+          padding: 1rem;
+          margin-bottom: 1rem;
+          text-align: left;
+        }
+
+        .wrong-comparison .your-answer,
+        .wrong-comparison .correct-answer {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          margin-bottom: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .wrong-comparison .label {
+          font-size: 0.85rem;
+          color: #64748b;
+          min-width: 80px;
+        }
+
+        .wrong-comparison .answer {
+          font-size: 1.1rem;
+          font-weight: 600;
+          padding: 0.25rem 0.5rem;
+          border-radius: 6px;
+        }
+
+        .wrong-comparison .answer.wrong {
+          background: #fee2e2;
+          color: #dc2626;
+          text-decoration: line-through;
+        }
+
+        .wrong-comparison .answer.correct-text {
+          background: #dcfce7;
+          color: #16a34a;
+        }
+
+        .replay-btn {
+          padding: 0.25rem 0.75rem;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 0.85rem;
+          cursor: pointer;
+          transition: transform 0.2s;
+        }
+
+        .replay-btn:hover {
+          transform: scale(1.05);
+        }
       `}</style>
     </div>
   );

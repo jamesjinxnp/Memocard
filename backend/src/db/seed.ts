@@ -10,7 +10,7 @@ async function seedVocabulary() {
     console.log('🌱 Starting vocabulary seed...');
 
     // Read CSV file - use absolute path (go up from backend/src/db to root/source)
-    const csvPath = process.env.CSV_PATH || join(dirname(import.meta.dir), '..', '..', 'source', 'oxford_5000.csv');
+    const csvPath = process.env.CSV_PATH || join(dirname(import.meta.dir), '..', '..', 'source', 'oxford_5000_update.csv');
     console.log('📁 CSV Path:', csvPath);
     const csvContent = readFileSync(csvPath, 'utf-8');
 
@@ -45,6 +45,7 @@ async function seedVocabulary() {
             imageUrl: record.image
                 ? `${CLOUDINARY_BASE_URL}${record.image}`
                 : null,
+            tag: record.tag || null,
         }));
 
         await db.insert(vocabulary).values(values);

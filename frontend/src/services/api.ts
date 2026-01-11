@@ -49,8 +49,15 @@ export const studyApi = {
     getNewCards: (limit = 10) =>
         api.get(`/study/new?limit=${limit}`),
 
+    // Get study queue grouped by priority (Tree Model)
+    getQueue: (deck?: string, dailyLimit = 20) =>
+        api.get(`/study/queue?dailyLimit=${dailyLimit}${deck ? `&deck=${deck}` : ''}`),
+
     learnCard: (vocabularyId: number) =>
         api.post(`/study/learn/${vocabularyId}`),
+
+    learnDeck: (deck: string, limit = 20) =>
+        api.post('/study/learn-deck', { deck, limit }),
 
     submitReview: (data: {
         cardId: string;
@@ -72,8 +79,8 @@ export const studyApi = {
 
 // ==================== VOCABULARY API ====================
 export const vocabularyApi = {
-    getAll: (page = 1, limit = 50, cefr?: string) =>
-        api.get(`/vocabulary?page=${page}&limit=${limit}${cefr ? `&cefr=${cefr}` : ''}`),
+    getAll: (page = 1, limit = 50, cefr?: string, deck?: string) =>
+        api.get(`/vocabulary?page=${page}&limit=${limit}${cefr ? `&cefr=${cefr}` : ''}${deck ? `&deck=${deck}` : ''}`),
 
     search: (query: string) =>
         api.get(`/vocabulary/search?q=${query}`),
@@ -83,6 +90,12 @@ export const vocabularyApi = {
 
     getCefrStats: () =>
         api.get('/vocabulary/stats/cefr'),
+
+    getDeckStats: () =>
+        api.get('/vocabulary/stats/decks'),
+
+    getDecks: () =>
+        api.get('/vocabulary/decks'),
 
     getRandom: (count: number, cefr?: string, exclude?: number[]) =>
         api.get(`/vocabulary/random/${count}${cefr ? `?cefr=${cefr}` : ''}${exclude?.length ? `&exclude=${exclude.join(',')}` : ''}`),

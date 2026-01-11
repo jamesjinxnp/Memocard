@@ -26,6 +26,7 @@ export const vocabulary = sqliteTable('vocabulary', {
     audioEn: text('audio_en'),
     audioExample: text('audio_example'),
     imageUrl: text('image_url'), // Cloudinary URL
+    tag: text('tag'), // Comma-separated tags: "oxford3000,Toeic,Level 600"
 });
 
 // ==================== CARDS (FSRS State) ====================

@@ -10,20 +10,31 @@ const vocabularyRoutes = new Elysia({ prefix: '/vocabulary' })
         const page = parseInt(query.page || '1');
         const limit = parseInt(query.limit || '50');
         const cefr = query.cefr;
+        const deck = query.deck; // Filter by deck tag (oxford3000, oxford5000, Toeic, etc.)
         const offset = (page - 1) * limit;
 
-        let dbQuery = db.select().from(vocabulary);
-
+        // Build where conditions
+        const conditions = [];
         if (cefr) {
-            dbQuery = dbQuery.where(eq(vocabulary.cefr, cefr)) as typeof dbQuery;
+            conditions.push(eq(vocabulary.cefr, cefr));
+        }
+        if (deck) {
+            // Match deck in comma-separated tag field (e.g., "oxford3000,Toeic")
+            conditions.push(like(vocabulary.tag, `%${deck}%`));
+        }
+
+        let dbQuery = db.select().from(vocabulary);
+        if (conditions.length > 0) {
+            dbQuery = dbQuery.where(conditions.length === 1 ? conditions[0] : sql`${conditions[0]} AND ${conditions[1]}`) as typeof dbQuery;
         }
 
         const items = await dbQuery.limit(limit).offset(offset);
 
-        // Get total count
-        const countQuery = cefr
-            ? db.select({ count: sql<number>`count(*)` }).from(vocabulary).where(eq(vocabulary.cefr, cefr))
-            : db.select({ count: sql<number>`count(*)` }).from(vocabulary);
+        // Get total count with same filters
+        let countQuery = db.select({ count: sql<number>`count(*)` }).from(vocabulary);
+        if (conditions.length > 0) {
+            countQuery = countQuery.where(conditions.length === 1 ? conditions[0] : sql`${conditions[0]} AND ${conditions[1]}`) as typeof countQuery;
+        }
 
         const total = await countQuery;
 
@@ -41,6 +52,7 @@ const vocabularyRoutes = new Elysia({ prefix: '/vocabulary' })
             page: t.Optional(t.String()),
             limit: t.Optional(t.String()),
             cefr: t.Optional(t.String()),
+            deck: t.Optional(t.String()),
         })
     })
 
@@ -85,6 +97,54 @@ const vocabularyRoutes = new Elysia({ prefix: '/vocabulary' })
             .groupBy(vocabulary.cefr);
 
         return { stats };
+    })
+
+    // ==================== GET DECK STATISTICS ====================
+    .get('/stats/decks', async () => {
+        // Get counts for main decks
+        const decks = ['oxford3000', 'oxford5000', 'Toeic'];
+        const stats = [];
+
+        for (const deck of decks) {
+            const result = await db
+                .select({ count: sql<number>`count(*)` })
+                .from(vocabulary)
+                .where(like(vocabulary.tag, `%${deck}%`));
+
+            stats.push({
+                deck,
+                count: result[0]?.count || 0,
+            });
+        }
+
+        return { stats };
+    })
+
+    // ==================== GET AVAILABLE DECKS ====================
+    .get('/decks', async () => {
+        // Return predefined decks with metadata
+        const decks = [
+            { id: 'oxford3000', name: 'Oxford 3000', description: 'Most important 3000 words for learners', color: 'emerald' },
+            { id: 'oxford5000', name: 'Oxford 5000', description: 'Extended vocabulary for advanced learners', color: 'blue' },
+            { id: 'Toeic', name: 'TOEIC', description: 'Essential vocabulary for TOEIC exam', color: 'purple' },
+        ];
+
+        // Get counts for each deck
+        const deckStats = await Promise.all(
+            decks.map(async (deck) => {
+                const result = await db
+                    .select({ count: sql<number>`count(*)` })
+                    .from(vocabulary)
+                    .where(like(vocabulary.tag, `%${deck.id}%`));
+
+                return {
+                    ...deck,
+                    wordCount: result[0]?.count || 0,
+                };
+            })
+        );
+
+        return { decks: deckStats };
     })
 
     // ==================== GET RANDOM VOCABULARY FOR QUIZ ====================
