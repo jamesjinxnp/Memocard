@@ -386,8 +386,9 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
         }
 
         .result-card {
-          background: #1e293b;
-          color: #f1f5f9;
+          background: #1e293b !important;
+          background-color: #1e293b !important;
+          color: #f1f5f9 !important;
           padding: 2rem;
           border-radius: 16px;
           text-align: center;
@@ -396,10 +397,12 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
         }
 
         .result-card.correct {
+          background: #1e293b !important;
           border: 3px solid #22c55e;
         }
 
         .result-card.incorrect {
+          background: #1e293b !important;
           border: 3px solid #ef4444;
         }
 
@@ -418,55 +421,56 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
           box-shadow: 0 10px 40px rgba(0,0,0,0.2);
         }
 
-        .word {
+        /* Result card text - EXPLICIT colors for visibility */
+        .result-card .word {
           font-size: 2.5rem;
           font-weight: 700;
           margin-bottom: 0.5rem;
-          color: #f8fafc;
+          color: #f8fafc !important;
         }
 
-        .ipa {
+        .result-card .ipa {
           font-size: 1.2rem;
           opacity: 0.9;
           font-family: serif;
           margin-bottom: 0.5rem;
-          color: #cbd5e1;
+          color: #cbd5e1 !important;
         }
 
-        .type-badge {
+        .result-card .type-badge {
           display: inline-block;
           background: rgba(255,255,255,0.15);
           padding: 0.25rem 0.75rem;
           border-radius: 20px;
           font-size: 0.85rem;
           margin-bottom: 1rem;
-          color: #e2e8f0;
+          color: #e2e8f0 !important;
         }
 
-        .def-en {
+        .result-card .def-en {
           font-size: 1.1rem;
           margin-bottom: 0.5rem;
-          color: #e2e8f0;
+          color: #e2e8f0 !important;
         }
 
-        .def-th {
+        .result-card .def-th {
           font-size: 1rem;
           opacity: 0.9;
-          color: #94a3b8;
+          color: #94a3b8 !important;
         }
 
-        .example-section {
+        .result-card .example-section {
           margin-top: 1.5rem;
           padding-top: 1rem;
           border-top: 1px solid rgba(255,255,255,0.1);
         }
 
-        .example {
+        .result-card .example {
           font-style: italic;
           font-size: 0.95rem;
           opacity: 0.9;
           margin-bottom: 0.5rem;
-          color: #cbd5e1;
+          color: #cbd5e1 !important;
         }
 
         .example-play {
@@ -511,7 +515,7 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
         .rating-btn.good { background: #22c55e; color: white; }
         .rating-btn.easy { background: #3b82f6; color: white; }
         .rating-btn.suggested { transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
-        .time-display { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; margin-top: 1rem; color: #94a3b8; }
+        .result-card .time-display { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; margin-top: 1rem; color: #94a3b8 !important; }
 
         /* Wrong answer comparison styles - Dark Mode */
         .wrong-comparison {
@@ -534,7 +538,7 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
 
         .wrong-comparison .label {
           font-size: 0.85rem;
-          color: #94a3b8;
+          color: #94a3b8 !important;
           min-width: 80px;
         }
 
@@ -547,13 +551,13 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
 
         .wrong-comparison .answer.wrong {
           background: #7f1d1d;
-          color: #fca5a5;
+          color: #fca5a5 !important;
           text-decoration: line-through;
         }
 
         .wrong-comparison .answer.correct-text {
           background: #14532d;
-          color: #86efac;
+          color: #86efac !important;
         }
 
         .replay-btn {

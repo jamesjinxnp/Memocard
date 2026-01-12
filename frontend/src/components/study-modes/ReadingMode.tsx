@@ -42,6 +42,12 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
   const [displayVocab, setDisplayVocab] = useState<Vocabulary>(vocabulary);
   const isTransitioning = useRef(false);
 
+  // Ref to always have access to the latest vocabulary prop
+  const latestVocabRef = useRef<Vocabulary>(vocabulary);
+  useEffect(() => {
+    latestVocabRef.current = vocabulary;
+  }, [vocabulary]);
+
   // Store pending vocabulary during transition
   useEffect(() => {
     if (isTransitioning.current) {
@@ -79,8 +85,8 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
 
     // 2. หลัง exit animation เสร็จ -> โหลดการ์ดใหม่ที่ตำแหน่งขวา
     setTimeout(() => {
-      // Update to the new vocabulary from prop
-      setDisplayVocab(vocabulary);
+      // Use the ref to get the LATEST vocabulary (updated by parent's onRate)
+      setDisplayVocab(latestVocabRef.current);
       setCardKey(k => k + 1); // Force re-render
       setSlideState('enter-right');
 

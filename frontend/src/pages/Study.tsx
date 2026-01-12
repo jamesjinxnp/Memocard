@@ -61,16 +61,16 @@ function shuffleArray<T>(array: T[]): T[] {
 // Get modes based on card state
 function getModesForCardState(state: number): StudyModeType[] {
     switch (state) {
-        case 0: // New - Reading + 2 Easy/Medium
-            return ['reading', ...shuffleArray(['multiple_choice', 'audio_choice', 'cloze'] as StudyModeType[]).slice(0, 2)];
-        case 1: // Learning - Medium modes
-            return shuffleArray(['cloze', 'audio_choice', 'multiple_choice', 'spelling'] as StudyModeType[]).slice(0, 2);
-        case 2: // Review - Hard modes
+        case 0: // New - Reading + 3 Active modes (4 total as per Complete Flow)
+            return ['reading', ...shuffleArray(['multiple_choice', 'audio_choice', 'cloze', 'typing'] as StudyModeType[]).slice(0, 3)];
+        case 1: // Learning - 2-3 Medium modes
+            return shuffleArray(['cloze', 'audio_choice', 'multiple_choice', 'spelling'] as StudyModeType[]).slice(0, 3);
+        case 2: // Review - 2 Hard modes
             return shuffleArray(['spelling', 'typing', 'listening'] as StudyModeType[]).slice(0, 2);
-        case 3: // Relearning - Reading + Medium
+        case 3: // Relearning - Reading + 2 Medium
             return ['reading', ...shuffleArray(['cloze', 'audio_choice', 'multiple_choice'] as StudyModeType[]).slice(0, 2)];
         default:
-            return ['reading', ...shuffleArray(ALL_MODES).slice(0, 2)];
+            return ['reading', ...shuffleArray(ALL_MODES).slice(0, 3)];
     }
 }
 
@@ -121,6 +121,7 @@ export default function Study() {
     // Session state
     const [cardStates, setCardStates] = useState<CardStudyState[]>([]);
     const [currentCardIdx, setCurrentCardIdx] = useState(0);
+    const [currentRound, setCurrentRound] = useState(0); // Global round tracking for mode consistency
     const [distractors, setDistractors] = useState<any[]>([]);
     const [sessionComplete, setSessionComplete] = useState(false);
     const [completedCount, setCompletedCount] = useState(0);
@@ -197,26 +198,44 @@ export default function Study() {
         enabled: !isMultiMode && !!mode,
     });
 
-    // Current card state helper
+
+    // Current card state helper - uses direct index on full array
     const getCurrentCardState = useCallback(() => {
         if (!isMultiMode || cardStates.length === 0) return null;
-        const incompleteCards = cardStates.filter(c => !c.isComplete);
-        if (incompleteCards.length === 0) return null;
-        return incompleteCards[currentCardIdx % incompleteCards.length];
+        const card = cardStates[currentCardIdx];
+        if (!card || card.isComplete) return null;
+        return card;
     }, [isMultiMode, cardStates, currentCardIdx]);
 
-    // Get current mode for current card
+    // Get current mode for current card - respects round-based consistency
     const getCurrentMode = useCallback((): StudyModeType | null => {
         const cardState = getCurrentCardState();
         if (!cardState) return null;
 
-        // If in retry queue, return first retry mode
-        if (cardState.retryQueue.length > 0 && cardState.currentModeIndex >= cardState.modeQueue.length) {
+        // If card has retry queue and already past the current round, process retry first
+        if (cardState.retryQueue.length > 0 && cardState.currentModeIndex > currentRound) {
             return cardState.retryQueue[0];
         }
 
-        return cardState.modeQueue[cardState.currentModeIndex] || null;
-    }, [getCurrentCardState]);
+        // If card still needs to do current round's mode
+        if (cardState.currentModeIndex <= currentRound && cardState.currentModeIndex < cardState.modeQueue.length) {
+            return cardState.modeQueue[cardState.currentModeIndex];
+        }
+
+        // If card finished all queue modes but has retry
+        if (cardState.currentModeIndex >= cardState.modeQueue.length && cardState.retryQueue.length > 0) {
+            return cardState.retryQueue[0];
+        }
+
+        return null;
+    }, [getCurrentCardState, currentRound]);
+
+    // Session completion check - uses useEffect to react to state changes properly
+    useEffect(() => {
+        if (isMultiMode && cardStates.length > 0 && cardStates.every(c => c.isComplete)) {
+            setSessionComplete(true);
+        }
+    }, [isMultiMode, cardStates]);
 
     // Fetch distractors for choice modes
     useEffect(() => {
@@ -262,16 +281,30 @@ export default function Study() {
 
         // Multi-mode: Card Interleaving + Penalty Logic
         const passed = rating >= 3;
+        const currentMode = getCurrentMode();
+        if (!currentMode) return;
 
-        setCardStates(prev => {
-            const newStates = [...prev];
-            const incompleteCards = newStates.filter(c => !c.isComplete);
-            if (incompleteCards.length === 0) return prev;
+        // Helper to find next incomplete card in the given states array
+        const findNext = (fromIdx: number, states: CardStudyState[]): number => {
+            const len = states.length;
+            if (len === 0) return -1;
+            for (let i = 1; i <= len; i++) {
+                const idx = (fromIdx + i) % len;
+                if (!states[idx].isComplete) {
+                    return idx;
+                }
+            }
+            return -1;
+        };
 
-            const cardState = incompleteCards[currentCardIdx % incompleteCards.length];
-            const currentMode = getCurrentMode();
-            if (!currentMode) return prev;
+        // Use flushSync or compute synchronously
+        let computedNextIdx = currentCardIdx;
+        let computedShouldAdvanceRound = false;
 
+        const newStates = cardStates.map(c => ({ ...c, modeAttempts: new Map(c.modeAttempts), retryQueue: [...c.retryQueue] }));
+        const cardState = newStates[currentCardIdx];
+
+        if (cardState && !cardState.isComplete) {
             if (passed) {
                 // Remove from retry queue if present
                 cardState.retryQueue = cardState.retryQueue.filter(m => m !== currentMode);
@@ -302,22 +335,25 @@ export default function Study() {
                 cardState.modeAttempts.set(currentMode, (cardState.modeAttempts.get(currentMode) || 0) + 1);
             }
 
-            return newStates;
-        });
-
-        // Move to next card (interleaving)
-        setCurrentCardIdx(prev => {
-            const incompleteCards = cardStates.filter(c => !c.isComplete);
-            if (incompleteCards.length <= 1) {
-                // Check if session complete
-                const stillIncomplete = cardStates.filter(c => !c.isComplete);
-                if (stillIncomplete.length === 0 || (stillIncomplete.length === 1 && passed)) {
-                    setSessionComplete(true);
-                }
-                return 0;
+            // Check if all cards have passed current round - advance global round
+            const allPassedCurrentRound = newStates.every(
+                c => c.isComplete || c.currentModeIndex > currentRound
+            );
+            if (allPassedCurrentRound) {
+                computedShouldAdvanceRound = true;
             }
-            return (prev + 1) % incompleteCards.length;
-        });
+
+            // Compute next card index using the UPDATED states
+            computedNextIdx = findNext(currentCardIdx, newStates);
+            if (computedNextIdx < 0) computedNextIdx = currentCardIdx;
+        }
+
+        // Apply all state updates together
+        setCardStates(newStates);
+        if (computedShouldAdvanceRound) {
+            setCurrentRound(r => r + 1);
+        }
+        setCurrentCardIdx(computedNextIdx);
     };
 
     // Loading state
