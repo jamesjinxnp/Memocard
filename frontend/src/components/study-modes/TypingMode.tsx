@@ -380,20 +380,23 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
 
         .rating-buttons {
           display: flex;
-          gap: 0.5rem;
+          gap: 0.75rem;
           margin-top: 1.5rem;
           flex-wrap: wrap;
           justify-content: center;
         }
 
         .rating-btn {
-          padding: 0.5rem 1rem;
+          padding: 0.75rem 1.25rem;
+          min-height: 48px;
+          min-width: 72px;
           border: 2px solid rgba(255,255,255,0.3);
           background: rgba(255,255,255,0.1);
           color: white;
           border-radius: 8px;
           cursor: pointer;
           font-weight: 600;
+          font-size: 1rem;
           transition: all 0.2s;
         }
 
@@ -405,6 +408,10 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
 
         .rating-btn:hover {
           background: rgba(255,255,255,0.2);
+        }
+
+        .rating-btn:active {
+          transform: scale(0.95);
         }
 
         .try-again-btn {

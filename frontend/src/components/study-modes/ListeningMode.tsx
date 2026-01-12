@@ -386,12 +386,13 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
         }
 
         .result-card {
-          background: white;
+          background: #1e293b;
+          color: #f1f5f9;
           padding: 2rem;
           border-radius: 16px;
           text-align: center;
           width: 100%;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+          box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
 
         .result-card.correct {
@@ -421,6 +422,7 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
           font-size: 2.5rem;
           font-weight: 700;
           margin-bottom: 0.5rem;
+          color: #f8fafc;
         }
 
         .ipa {
@@ -428,31 +430,35 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
           opacity: 0.9;
           font-family: serif;
           margin-bottom: 0.5rem;
+          color: #cbd5e1;
         }
 
         .type-badge {
           display: inline-block;
-          background: rgba(255,255,255,0.2);
+          background: rgba(255,255,255,0.15);
           padding: 0.25rem 0.75rem;
           border-radius: 20px;
           font-size: 0.85rem;
           margin-bottom: 1rem;
+          color: #e2e8f0;
         }
 
         .def-en {
           font-size: 1.1rem;
           margin-bottom: 0.5rem;
+          color: #e2e8f0;
         }
 
         .def-th {
           font-size: 1rem;
           opacity: 0.9;
+          color: #94a3b8;
         }
 
         .example-section {
           margin-top: 1.5rem;
           padding-top: 1rem;
-          border-top: 1px solid rgba(255,255,255,0.2);
+          border-top: 1px solid rgba(255,255,255,0.1);
         }
 
         .example {
@@ -460,11 +466,12 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
           font-size: 0.95rem;
           opacity: 0.9;
           margin-bottom: 0.5rem;
+          color: #cbd5e1;
         }
 
         .example-play {
           padding: 0.5rem 1rem;
-          background: rgba(255,255,255,0.2);
+          background: rgba(255,255,255,0.1);
           border: none;
           border-radius: 8px;
           color: white;
@@ -473,7 +480,7 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
 
         .rating-buttons {
           display: flex;
-          gap: 0.5rem;
+          gap: 0.75rem;
           margin-top: 1.5rem;
           justify-content: center;
           flex-wrap: wrap;
@@ -481,9 +488,12 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
 
         .rating-btn {
           padding: 0.75rem 1.25rem;
+          min-height: 48px;
+          min-width: 72px;
           border: none;
           border-radius: 8px;
           font-weight: 600;
+          font-size: 1rem;
           cursor: pointer;
           transition: transform 0.2s;
         }
@@ -492,16 +502,20 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
           transform: translateY(-2px);
         }
 
+        .rating-btn:active {
+          transform: scale(0.95);
+        }
+
         .rating-btn.again { background: #ef4444; color: white; }
         .rating-btn.hard { background: #f97316; color: white; }
         .rating-btn.good { background: #22c55e; color: white; }
         .rating-btn.easy { background: #3b82f6; color: white; }
         .rating-btn.suggested { transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
-        .time-display { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; margin-top: 1rem; }
+        .time-display { font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem; margin-top: 1rem; color: #94a3b8; }
 
-        /* Wrong answer comparison styles */
+        /* Wrong answer comparison styles - Dark Mode */
         .wrong-comparison {
-          background: #fef2f2;
+          background: #450a0a;
           border: 2px solid #ef4444;
           border-radius: 12px;
           padding: 1rem;
@@ -520,7 +534,7 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
 
         .wrong-comparison .label {
           font-size: 0.85rem;
-          color: #64748b;
+          color: #94a3b8;
           min-width: 80px;
         }
 
@@ -532,14 +546,14 @@ export default function ListeningMode({ vocabulary, onRate }: ListeningModeProps
         }
 
         .wrong-comparison .answer.wrong {
-          background: #fee2e2;
-          color: #dc2626;
+          background: #7f1d1d;
+          color: #fca5a5;
           text-decoration: line-through;
         }
 
         .wrong-comparison .answer.correct-text {
-          background: #dcfce7;
-          color: #16a34a;
+          background: #14532d;
+          color: #86efac;
         }
 
         .replay-btn {

@@ -121,10 +121,10 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full max-w-lg mx-auto overflow-hidden">
-      {/* Flashcard Wrapper */}
+    <div className="flex flex-col items-center gap-6 w-full max-w-lg mx-auto overflow-hidden px-2">
+      {/* Flashcard Wrapper - More mobile-friendly aspect ratio */}
       <div
-        className="w-full aspect-[4/3] cursor-pointer"
+        className="w-full aspect-[3/2] cursor-pointer"
         style={getCardStyle()}
         onClick={handleFlip}
       >
@@ -142,54 +142,55 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
           >
             {/* Front - Word */}
             <div
-              className="absolute inset-0 rounded-2xl p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-violet-600 to-purple-700 shadow-xl"
+              className="absolute inset-0 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-violet-600 to-purple-700 shadow-xl"
               style={{ backfaceVisibility: 'hidden' }}
             >
-              <h1 className="text-4xl md:text-5xl font-bold mb-2 text-center">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 text-center">
                 {displayVocab.word}
               </h1>
 
               {ipa && (
-                <p className="text-lg opacity-90 font-serif mb-2">/{ipa}/</p>
+                <p className="text-base md:text-lg opacity-90 font-serif mb-2">/{ipa}/</p>
               )}
 
               {displayVocab.type && (
-                <span className="px-3 py-1 rounded-full bg-white/20 text-sm font-medium mb-4">
+                <span className="px-3 py-1 rounded-full bg-white/20 text-sm font-medium mb-3">
                   {displayVocab.type}
                 </span>
               )}
 
               <button
-                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors active:scale-95"
                 onClick={(e) => { e.stopPropagation(); handleSpeak(); }}
                 disabled={isPlaying}
               >
                 <Volume2 className={`size-6 ${isPlaying ? 'animate-pulse' : ''}`} />
               </button>
 
-              <p className="absolute bottom-4 text-sm opacity-70">แตะเพื่อดูคำตอบ</p>
+              {/* Only show hint when not flipped */}
+              <p className="absolute bottom-3 text-xs md:text-sm opacity-70">แตะเพื่อดูคำตอบ</p>
             </div>
 
             {/* Back - Definition */}
             <div
-              className="absolute inset-0 rounded-2xl p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl overflow-y-auto"
+              className="absolute inset-0 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl overflow-y-auto"
               style={{
                 backfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
               }}
             >
-              <h2 className="text-2xl font-bold mb-4">{displayVocab.word}</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-3">{displayVocab.word}</h2>
 
               {displayVocab.defEn && (
-                <p className="text-center text-lg mb-2">{displayVocab.defEn}</p>
+                <p className="text-center text-base md:text-lg mb-2">{displayVocab.defEn}</p>
               )}
 
               {displayVocab.defTh && (
-                <p className="text-center opacity-90">{displayVocab.defTh}</p>
+                <p className="text-center text-sm md:text-base opacity-90">{displayVocab.defTh}</p>
               )}
 
               {displayVocab.example && (
-                <p className="text-center text-sm italic mt-4 opacity-85">
+                <p className="text-center text-xs md:text-sm italic mt-3 opacity-85">
                   <span className="font-semibold not-italic">Example: </span>
                   {displayVocab.example}
                 </p>
@@ -199,7 +200,7 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
                 <img
                   src={displayVocab.imageUrl}
                   alt={displayVocab.word}
-                  className="max-w-24 max-h-20 rounded-lg mt-4 object-cover"
+                  className="max-w-20 md:max-w-24 max-h-16 md:max-h-20 rounded-lg mt-3 object-cover"
                 />
               )}
             </div>
@@ -207,13 +208,13 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
         </div>
       </div>
 
-      {/* Rating Buttons */}
+      {/* Rating Buttons - Touch-friendly sizes */}
       {isFlipped && slideState === 'center' && (
-        <div className="flex flex-wrap gap-3 justify-center">
+        <div className="flex flex-wrap gap-3 md:gap-4 justify-center w-full">
           <Button
             variant="destructive"
             onClick={() => handleRate(1)}
-            className="flex flex-col h-auto py-2 px-4 bg-red-500 hover:bg-red-600"
+            className="flex flex-col min-h-12 min-w-[72px] h-auto py-3 px-5 bg-red-500 hover:bg-red-600 active:scale-95 transition-transform text-base"
           >
             <span className="font-semibold">Again</span>
             {showSchedule && <span className="text-xs opacity-80">{showSchedule.again}d</span>}
@@ -221,7 +222,7 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
 
           <Button
             onClick={() => handleRate(2)}
-            className="flex flex-col h-auto py-2 px-4 bg-orange-500 hover:bg-orange-600"
+            className="flex flex-col min-h-12 min-w-[72px] h-auto py-3 px-5 bg-orange-500 hover:bg-orange-600 active:scale-95 transition-transform text-base"
           >
             <span className="font-semibold">Hard</span>
             {showSchedule && <span className="text-xs opacity-80">{showSchedule.hard}d</span>}
@@ -229,7 +230,7 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
 
           <Button
             onClick={() => handleRate(3)}
-            className="flex flex-col h-auto py-2 px-4 bg-green-500 hover:bg-green-600"
+            className="flex flex-col min-h-12 min-w-[72px] h-auto py-3 px-5 bg-green-500 hover:bg-green-600 active:scale-95 transition-transform text-base"
           >
             <span className="font-semibold">Good</span>
             {showSchedule && <span className="text-xs opacity-80">{showSchedule.good}d</span>}
@@ -237,7 +238,7 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
 
           <Button
             onClick={() => handleRate(4)}
-            className="flex flex-col h-auto py-2 px-4 bg-blue-500 hover:bg-blue-600"
+            className="flex flex-col min-h-12 min-w-[72px] h-auto py-3 px-5 bg-blue-500 hover:bg-blue-600 active:scale-95 transition-transform text-base"
           >
             <span className="font-semibold">Easy</span>
             {showSchedule && <span className="text-xs opacity-80">{showSchedule.easy}d</span>}

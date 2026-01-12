@@ -627,10 +627,10 @@ const study = new Elysia({ prefix: '/study' })
             .where(eq(cards.userId, user.userId))
             .groupBy(cards.state);
 
-        // Reviews today
+        // Reviews today - count UNIQUE cards studied today (not total interactions)
         const todayStartTimestamp = Math.floor(todayStart.getTime() / 1000);
         const reviewsToday = await db
-            .select({ count: sql<number>`count(*)` })
+            .select({ count: sql<number>`count(DISTINCT ${reviewLogs.cardId})` })
             .from(reviewLogs)
             .where(and(
                 eq(reviewLogs.userId, user.userId),

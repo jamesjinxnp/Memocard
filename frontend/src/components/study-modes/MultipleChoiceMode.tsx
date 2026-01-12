@@ -328,13 +328,17 @@ export default function MultipleChoiceMode({
           display: flex;
           gap: 0.75rem;
           justify-content: center;
+          flex-wrap: wrap;
         }
 
         .rating-btn {
           padding: 0.75rem 1.5rem;
+          min-height: 48px;
+          min-width: 72px;
           border: none;
           border-radius: 8px;
           font-weight: 600;
+          font-size: 1rem;
           cursor: pointer;
           transition: transform 0.2s;
           color: white;
@@ -342,6 +346,10 @@ export default function MultipleChoiceMode({
 
         .rating-btn:hover {
           transform: translateY(-2px);
+        }
+
+        .rating-btn:active {
+          transform: scale(0.95);
         }
 
         .rating-btn.again { background: #ef4444; }
