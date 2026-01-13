@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { speakWord } from '../../services/audio';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { speakWord, stopSpeaking } from '../../services/audio';
 
 interface Vocabulary {
   id: number;
@@ -23,6 +23,9 @@ export default function AudioChoiceMode({ vocabulary, distractors, onRate }: Aud
   const [startTime, setStartTime] = useState<number>(Date.now());
   const [responseTime, setResponseTime] = useState<number>(0);
 
+  // Track active audio playback to enable interruption
+  const currentPlayingRef = useRef<number | null>(null);
+
   // Shuffle options - same as MultipleChoiceMode
   const options = useMemo(() => {
     const allOptions = [vocabulary, ...distractors.slice(0, 3)];
@@ -35,15 +38,30 @@ export default function AudioChoiceMode({ vocabulary, distractors, onRate }: Aud
     setIsCorrect(false);
     setStartTime(Date.now());
     setResponseTime(0);
+    // Stop any playing audio when card changes
+    stopSpeaking();
+    setPlayingId(null);
+    currentPlayingRef.current = null;
   }, [vocabulary.id]);
 
   const handlePlay = async (option: Vocabulary) => {
     if (showResult) return;
+
+    // Stop any currently playing audio (interruptible playback)
+    stopSpeaking();
+
+    // Update state to show this option is playing
+    currentPlayingRef.current = option.id;
     setPlayingId(option.id);
+
     try {
       await speakWord(option.word);
     } finally {
-      setPlayingId(null);
+      // Only clear playing state if this audio wasn't interrupted
+      if (currentPlayingRef.current === option.id) {
+        setPlayingId(null);
+        currentPlayingRef.current = null;
+      }
     }
   };
 
@@ -142,7 +160,6 @@ export default function AudioChoiceMode({ vocabulary, distractors, onRate }: Aud
             <button
               className="play-audio-btn"
               onClick={() => handlePlay(option)}
-              disabled={playingId !== null}
             >
               {playingId === option.id ? '🔊' : '▶️'}
             </button>

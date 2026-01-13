@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore, useStudyStore } from '@/stores';
 import { studyApi, vocabularyApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import { LogOut, Settings, Library, ChevronRight } from 'lucide-react';
+import { LogOut, Settings, Library, ChevronRight, BarChart3 } from 'lucide-react';
 import ProgressCharts from '@/components/ProgressCharts';
 import { SkeletonDeck } from '@/components/ui/skeleton';
 
@@ -63,7 +63,10 @@ export default function Dashboard() {
             <span className="hidden sm:inline text-sm text-slate-400">
               👋 {user?.name || user?.email}
             </span>
-            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/analytics')} title="Analytics">
+              <BarChart3 className="size-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} title="Settings">
               <Settings className="size-5" />
             </Button>
             <Button variant="outline" size="sm" onClick={logout} className="gap-1">
@@ -80,6 +83,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-slate-100 mb-4">Your Progress</h2>
           <ProgressCharts todayStats={statsData} />
         </section>
+
 
         {/* Deck Selection Section */}
         <section>

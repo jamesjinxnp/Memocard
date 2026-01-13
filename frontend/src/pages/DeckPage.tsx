@@ -93,13 +93,14 @@ export default function DeckPage() {
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     });
 
-    // Fetch user's card states
+    // Fetch user's card states for this deck (intersection: words in deck that user has learned)
     const { data: statsData } = useQuery({
-        queryKey: ['study-stats'],
+        queryKey: ['study-stats', deckId],
         queryFn: async () => {
-            const response = await studyApi.getStats();
+            const response = await studyApi.getStats(deckId);
             return response.data;
         },
+        enabled: !!deckId,
     });
 
     // Fetch queue counts for this deck
@@ -187,9 +188,105 @@ export default function DeckPage() {
                         Back
                     </Button>
                     <h1 className="font-semibold text-slate-100">{deckInfo.name}</h1>
-                    <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)}>
-                        <Settings className="size-4" />
-                    </Button>
+                    <div className="relative">
+                        <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)}>
+                            <Settings className="size-4" />
+                        </Button>
+                        {/* Settings Popover */}
+                        {showSettings && (
+                            <>
+                                {/* Invisible backdrop to close popover */}
+                                <div
+                                    className="fixed inset-0 z-40"
+                                    onClick={() => {
+                                        setTempDailyCards(dailyNewCards);
+                                        setShowSettings(false);
+                                    }}
+                                />
+                                {/* Popover */}
+                                <div className="absolute right-0 top-full mt-2 z-50 w-80">
+                                    <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-2xl">
+                                        <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2 mb-4">
+                                            <Settings className="size-4" />
+                                            Deck Settings
+                                        </h3>
+
+                                        <div className="space-y-3">
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-slate-300">คำใหม่ต่อวัน</label>
+                                                <div className="flex items-start gap-3">
+                                                    {/* Left Wrapper: Slider + Labels */}
+                                                    <div className="flex-1 space-y-1">
+                                                        <input
+                                                            type="range"
+                                                            min="5"
+                                                            max="100"
+                                                            step="5"
+                                                            value={tempDailyCards}
+                                                            onChange={(e) => setTempDailyCards(parseInt(e.target.value))}
+                                                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                                                        />
+                                                        <div className="flex justify-between text-[10px] text-slate-500">
+                                                            <span>5</span>
+                                                            <span>25</span>
+                                                            <span>50</span>
+                                                            <span>75</span>
+                                                            <span>100</span>
+                                                        </div>
+                                                    </div>
+                                                    {/* Number Input (outside the left wrapper) */}
+                                                    <input
+                                                        type="number"
+                                                        min="5"
+                                                        max="100"
+                                                        step="5"
+                                                        value={tempDailyCards}
+                                                        onChange={(e) => {
+                                                            const value = parseInt(e.target.value) || 5;
+                                                            const clamped = Math.min(100, Math.max(5, value));
+                                                            setTempDailyCards(clamped);
+                                                        }}
+                                                        onBlur={(e) => {
+                                                            const value = parseInt(e.target.value) || 5;
+                                                            const clamped = Math.min(100, Math.max(5, value));
+                                                            setTempDailyCards(clamped);
+                                                        }}
+                                                        className="w-14 h-8 px-2 text-center text-sm font-bold text-primary bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <p className="text-[10px] text-slate-400">
+                                                จำนวนคำศัพท์ใหม่ที่จะเรียนต่อวัน
+                                            </p>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex gap-2 mt-4">
+                                            <button
+                                                onClick={() => {
+                                                    setTempDailyCards(dailyNewCards);
+                                                    setShowSettings(false);
+                                                }}
+                                                className="flex-1 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    saveDailyNewCards(tempDailyCards);
+                                                    setShowSettings(false);
+                                                }}
+                                                className="flex-1 px-3 py-1.5 text-sm bg-primary hover:bg-primary/80 text-white font-medium rounded-lg transition-colors"
+                                            >
+                                                💾 Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -214,79 +311,6 @@ export default function DeckPage() {
                     </div>
                 </div>
 
-                {/* Settings Modal */}
-                {showSettings && (
-                    <>
-                        {/* Backdrop */}
-                        <div
-                            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-                            onClick={() => {
-                                setTempDailyCards(dailyNewCards);
-                                setShowSettings(false);
-                            }}
-                        />
-                        {/* Modal */}
-                        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md">
-                            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-2xl">
-                                <h3 className="text-xl font-semibold text-slate-100 flex items-center gap-2 mb-6">
-                                    <Settings className="size-5" />
-                                    Deck Settings
-                                </h3>
-
-                                <div className="space-y-4">
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-sm text-slate-300">คำใหม่ต่อวัน</label>
-                                            <span className="text-2xl font-bold text-primary">{tempDailyCards}</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="5"
-                                            max="100"
-                                            step="5"
-                                            value={tempDailyCards}
-                                            onChange={(e) => setTempDailyCards(parseInt(e.target.value))}
-                                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
-                                        />
-                                        <div className="flex justify-between text-xs text-slate-500">
-                                            <span>5</span>
-                                            <span>25</span>
-                                            <span>50</span>
-                                            <span>75</span>
-                                            <span>100</span>
-                                        </div>
-                                    </div>
-
-                                    <p className="text-xs text-slate-400">
-                                        จำนวนคำศัพท์ใหม่ที่จะเรียนต่อวัน (ต้องเรียน Learning/Review ให้จบก่อน)
-                                    </p>
-                                </div>
-
-                                {/* Action Buttons */}
-                                <div className="flex gap-3 mt-6">
-                                    <button
-                                        onClick={() => {
-                                            setTempDailyCards(dailyNewCards);
-                                            setShowSettings(false);
-                                        }}
-                                        className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            saveDailyNewCards(tempDailyCards);
-                                            setShowSettings(false);
-                                        }}
-                                        className="flex-1 px-4 py-2 bg-primary hover:bg-primary/80 text-white font-medium rounded-lg transition-colors"
-                                    >
-                                        💾 Save
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                )}
 
                 {/* Session Progress UI */}
                 {queueData && (

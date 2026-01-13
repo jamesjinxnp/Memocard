@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { studyApi, vocabularyApi } from '@/services/api';
@@ -131,11 +131,12 @@ export default function Study() {
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
     const [completed, setCompleted] = useState(false);
 
-    // Get daily limit from localStorage  
-    const dailyLimit = useMemo(() => {
+    // Get daily limit from localStorage - read fresh on mount
+    const getDailyLimit = () => {
         const settings = localStorage.getItem(`deck-settings-${deckId}`);
         return settings ? JSON.parse(settings).dailyNewCards || 20 : 20;
-    }, [deckId]);
+    };
+    const dailyLimit = getDailyLimit();
 
     // Fetch cards for multi-mode using Tree Model queue
     const { data: multiModeData, isLoading: multiLoading } = useQuery({
@@ -564,12 +565,7 @@ export default function Study() {
                 </div>
             )}
 
-            {/* Current word display */}
-            {isMultiMode && (
-                <div className="text-center py-2 text-sm text-slate-500">
-                    {vocabulary.word}
-                </div>
-            )}
+
 
             {/* Study Mode Content */}
             <main className="flex-1 flex items-center justify-center p-4 md:p-6">

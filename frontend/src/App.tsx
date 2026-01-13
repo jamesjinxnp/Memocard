@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import BrowseVocabulary from './pages/BrowseVocabulary';
 import DeckPage from './pages/DeckPage';
 import Settings from './pages/Settings';
+import AnalyticsPage from './pages/AnalyticsPage';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -65,6 +66,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <AnalyticsPage />
               </ProtectedRoute>
             }
           />

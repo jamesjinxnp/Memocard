@@ -347,8 +347,8 @@ const study = new Elysia({ prefix: '/study' })
             ));
         const existingNewCount = existingNewCountResult[0]?.count || 0;
 
-        // If already have enough seeds, don't add more
-        const targetSeeds = 20;
+        // Use the user's limit from settings instead of hardcoded 20
+        const targetSeeds = limit;
         if (existingNewCount >= targetSeeds) {
             return {
                 message: `Already have ${existingNewCount} new cards (seeds) ready to learn`,
@@ -602,7 +602,7 @@ const study = new Elysia({ prefix: '/study' })
     })
 
     // ==================== GET STUDY STATS ====================
-    .get('/stats', async ({ user, set }) => {
+    .get('/stats', async ({ user, set, query }) => {
         if (!user) {
             set.status = 401;
             return { error: 'Unauthorized' };
@@ -610,12 +610,26 @@ const study = new Elysia({ prefix: '/study' })
 
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const deck = query.deck;
 
-        // Total cards
-        const totalCards = await db
-            .select({ count: sql<number>`count(*)` })
-            .from(cards)
-            .where(eq(cards.userId, user.userId));
+        // Total cards - filter by deck if provided
+        let totalCards;
+        if (deck) {
+            // Count only cards whose vocabulary belongs to this deck
+            totalCards = await db
+                .select({ count: sql<number>`count(*)` })
+                .from(cards)
+                .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+                .where(and(
+                    eq(cards.userId, user.userId),
+                    like(vocabulary.tag, `%${deck}%`)
+                ));
+        } else {
+            totalCards = await db
+                .select({ count: sql<number>`count(*)` })
+                .from(cards)
+                .where(eq(cards.userId, user.userId));
+        }
 
         // Cards by state
         const cardsByState = await db
@@ -672,6 +686,10 @@ const study = new Elysia({ prefix: '/study' })
             dueToday: dueToday[0]?.count || 0,
             nextDueTime,
         };
+    }, {
+        query: t.Object({
+            deck: t.Optional(t.String()),
+        })
     })
 
     // ==================== GET PROGRESS STATS (for charts) ====================
@@ -757,6 +775,168 @@ const study = new Elysia({ prefix: '/study' })
             bestDay: bestDay?.dayName || 'N/A',
             dailyStats,
         };
+    })
+
+    // ==================== LEARNING ANALYTICS ====================
+    .get('/analytics', async ({ user, set }) => {
+        if (!user) {
+            set.status = 401;
+            return { error: 'Unauthorized' };
+        }
+
+        // ==================== 1. WEAK WORDS (Top 5 highest fail rate) ====================
+        // Cards with most "Again" ratings (rating = 1)
+        const weakWordsQuery = await db
+            .select({
+                cardId: reviewLogs.cardId,
+                totalReviews: sql<number>`COUNT(*)`,
+                failCount: sql<number>`SUM(CASE WHEN ${reviewLogs.rating} = 1 THEN 1 ELSE 0 END)`,
+            })
+            .from(reviewLogs)
+            .where(eq(reviewLogs.userId, user.userId))
+            .groupBy(reviewLogs.cardId)
+            .having(sql`COUNT(*) >= 2`) // At least 2 reviews to be meaningful
+            .orderBy(sql`CAST(SUM(CASE WHEN ${reviewLogs.rating} = 1 THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) DESC`)
+            .limit(5);
+
+        // Get card and vocabulary details for weak words
+        const weakWords = await Promise.all(
+            weakWordsQuery.map(async (ww) => {
+                const cardData = await db
+                    .select({
+                        card: cards,
+                        vocab: vocabulary,
+                    })
+                    .from(cards)
+                    .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+                    .where(eq(cards.id, ww.cardId))
+                    .limit(1);
+
+                if (!cardData[0]) return null;
+
+                const failRate = ww.totalReviews > 0
+                    ? Math.round((ww.failCount / ww.totalReviews) * 100)
+                    : 0;
+                const stability = Math.round(cardData[0].card.stability * 10); // Scale to 0-100
+
+                return {
+                    id: cardData[0].vocab.id,
+                    word: cardData[0].vocab.word,
+                    meaning: cardData[0].vocab.defTh || cardData[0].vocab.defEn || '',
+                    stability: Math.min(stability, 100),
+                    failRate,
+                    totalReviews: ww.totalReviews,
+                };
+            })
+        );
+
+        // ==================== 2. MODE PERFORMANCE (Accuracy by study mode) ====================
+        const modePerformance = await db
+            .select({
+                mode: reviewLogs.studyMode,
+                totalReviews: sql<number>`COUNT(*)`,
+                correctCount: sql<number>`SUM(CASE WHEN ${reviewLogs.rating} >= 3 THEN 1 ELSE 0 END)`,
+            })
+            .from(reviewLogs)
+            .where(eq(reviewLogs.userId, user.userId))
+            .groupBy(reviewLogs.studyMode);
+
+        const modePerformanceData = modePerformance.map((mp) => ({
+            mode: formatModeName(mp.mode),
+            modeKey: mp.mode,
+            accuracy: mp.totalReviews > 0
+                ? Math.round((mp.correctCount / mp.totalReviews) * 100)
+                : 0,
+            totalReviews: mp.totalReviews,
+            fullMark: 100,
+        }));
+
+        // ==================== 3. BEST TIME TO STUDY (Hourly accuracy) ====================
+        const hourlyPerformance = await db
+            .select({
+                hour: sql<number>`CAST(strftime('%H', datetime(${reviewLogs.reviewedAt}, 'unixepoch', 'localtime')) AS INTEGER)`,
+                totalReviews: sql<number>`COUNT(*)`,
+                correctCount: sql<number>`SUM(CASE WHEN ${reviewLogs.rating} >= 3 THEN 1 ELSE 0 END)`,
+            })
+            .from(reviewLogs)
+            .where(eq(reviewLogs.userId, user.userId))
+            .groupBy(sql`strftime('%H', datetime(${reviewLogs.reviewedAt}, 'unixepoch', 'localtime'))`)
+            .orderBy(sql`CAST(strftime('%H', datetime(${reviewLogs.reviewedAt}, 'unixepoch', 'localtime')) AS INTEGER)`);
+
+        const hourlyData = hourlyPerformance.map((hp) => ({
+            hour: hp.hour,
+            label: formatHour(hp.hour),
+            accuracy: hp.totalReviews > 0
+                ? Math.round((hp.correctCount / hp.totalReviews) * 100)
+                : 0,
+            reviews: hp.totalReviews,
+        }));
+
+        // Find peak hour
+        const peakHour = hourlyData.reduce((max, curr) =>
+            curr.accuracy > (max?.accuracy || 0) ? curr : max,
+            hourlyData[0] || null
+        );
+
+        // ==================== SUMMARY STATS ====================
+        const totalReviewsResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(reviewLogs)
+            .where(eq(reviewLogs.userId, user.userId));
+
+        const totalCorrectResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(reviewLogs)
+            .where(and(
+                eq(reviewLogs.userId, user.userId),
+                sql`${reviewLogs.rating} >= 3`
+            ));
+
+        const overallAccuracy = totalReviewsResult[0]?.count > 0
+            ? Math.round((totalCorrectResult[0]?.count / totalReviewsResult[0]?.count) * 100)
+            : 0;
+
+        return {
+            weakWords: weakWords.filter(Boolean),
+            modePerformance: modePerformanceData,
+            hourlyPerformance: hourlyData,
+            peakHour,
+            summary: {
+                totalReviews: totalReviewsResult[0]?.count || 0,
+                overallAccuracy,
+                strongestMode: modePerformanceData.reduce((max, curr) =>
+                    curr.accuracy > (max?.accuracy || 0) ? curr : max,
+                    modePerformanceData[0] || null
+                ),
+                weakestMode: modePerformanceData.reduce((min, curr) =>
+                    curr.accuracy < (min?.accuracy || 100) ? curr : min,
+                    modePerformanceData[0] || null
+                ),
+            },
+        };
     });
+
+// Helper functions for analytics
+function formatModeName(mode: string): string {
+    const modeNames: Record<string, string> = {
+        reading: 'Reading',
+        typing: 'Typing',
+        listening: 'Listening',
+        multiple_choice: 'Multiple Choice',
+        cloze: 'Cloze',
+        spelling_bee: 'Spelling Bee',
+        spelling: 'Spelling',
+        audio_choice: 'Audio Choice',
+        multi: 'Multi-Mode',
+    };
+    return modeNames[mode] || mode;
+}
+
+function formatHour(hour: number): string {
+    if (hour === 0) return '12AM';
+    if (hour === 12) return '12PM';
+    if (hour < 12) return `${hour}AM`;
+    return `${hour - 12}PM`;
+}
 
 export default study;

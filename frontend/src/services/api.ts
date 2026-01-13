@@ -72,9 +72,11 @@ export const studyApi = {
     completeSession: (sessionId: string) =>
         api.post(`/study/session/${sessionId}/complete`),
 
-    getStats: () => api.get('/study/stats'),
+    getStats: (deck?: string) => api.get(`/study/stats${deck ? `?deck=${deck}` : ''}`),
 
     getProgress: () => api.get('/study/stats/progress'),
+
+    getAnalytics: () => api.get('/study/analytics'),
 };
 
 // ==================== VOCABULARY API ====================
