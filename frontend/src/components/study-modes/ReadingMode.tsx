@@ -36,6 +36,7 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
   const [isFlipped, setIsFlipped] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [slideState, setSlideState] = useState<SlideState>('center');
+  const [showEnglish, setShowEnglish] = useState(false);
 
   // Use a key to force complete re-render of card content
   const [cardKey, setCardKey] = useState(0);
@@ -81,6 +82,7 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
     // 1. Flip กลับ + slide exit left พร้อมกัน
     setIsFlipped(false);
     setSlideState('exit-left');
+    setShowEnglish(false); // Reset for next card
     onRate(rating); // This will trigger vocabulary prop change
 
     // 2. หลัง exit animation เสร็จ -> โหลดการ์ดใหม่ที่ตำแหน่งขวา
@@ -146,38 +148,43 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
               transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
             }}
           >
-            {/* Front - Word */}
+            {/* Front - Word + Audio + Image + Example */}
             <div
               className="absolute inset-0 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-violet-600 to-purple-700 shadow-xl"
               style={{ backfaceVisibility: 'hidden' }}
             >
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 text-center">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 text-center">
                 {displayVocab.word}
               </h1>
 
-              {ipa && (
-                <p className="text-base md:text-lg opacity-90 font-serif mb-2">/{ipa}/</p>
-              )}
-
-              {displayVocab.type && (
-                <span className="px-3 py-1 rounded-full bg-white/20 text-sm font-medium mb-3">
-                  {displayVocab.type}
-                </span>
-              )}
-
               <button
-                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors active:scale-95"
+                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors active:scale-95 mb-3"
                 onClick={(e) => { e.stopPropagation(); handleSpeak(); }}
                 disabled={isPlaying}
               >
                 <Volume2 className={`size-6 ${isPlaying ? 'animate-pulse' : ''}`} />
               </button>
 
+              {displayVocab.imageUrl && (
+                <img
+                  src={displayVocab.imageUrl}
+                  alt={displayVocab.word}
+                  className="max-w-24 md:max-w-32 max-h-20 md:max-h-24 rounded-lg mb-3 object-cover"
+                />
+              )}
+
+              {displayVocab.example && (
+                <p className="text-center text-xs md:text-sm italic opacity-85 px-2">
+                  <span className="font-semibold not-italic">Example: </span>
+                  {displayVocab.example}
+                </p>
+              )}
+
               {/* Only show hint when not flipped */}
               <p className="absolute bottom-3 text-xs md:text-sm opacity-70">แตะเพื่อดูคำตอบ</p>
             </div>
 
-            {/* Back - Definition */}
+            {/* Back - Word + Thai + English toggle + IPA + Part of Speech */}
             <div
               className="absolute inset-0 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl overflow-y-auto"
               style={{
@@ -185,29 +192,43 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
                 transform: 'rotateY(180deg)',
               }}
             >
-              <h2 className="text-xl md:text-2xl font-bold mb-3">{displayVocab.word}</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-2">{displayVocab.word}</h2>
 
-              {displayVocab.defEn && (
-                <p className="text-center text-base md:text-lg mb-2">{displayVocab.defEn}</p>
-              )}
-
+              {/* Thai Translation - Main Focus */}
               {displayVocab.defTh && (
-                <p className="text-center text-sm md:text-base opacity-90">{displayVocab.defTh}</p>
-              )}
-
-              {displayVocab.example && (
-                <p className="text-center text-xs md:text-sm italic mt-3 opacity-85">
-                  <span className="font-semibold not-italic">Example: </span>
-                  {displayVocab.example}
+                <p className="text-center text-2xl md:text-3xl font-bold text-white mb-3">
+                  {displayVocab.defTh}
                 </p>
               )}
 
-              {displayVocab.imageUrl && (
-                <img
-                  src={displayVocab.imageUrl}
-                  alt={displayVocab.word}
-                  className="max-w-20 md:max-w-24 max-h-16 md:max-h-20 rounded-lg mt-3 object-cover"
-                />
+              {/* English Definition - Hidden by default with toggle */}
+              {displayVocab.defEn && (
+                <div className="w-full text-center mb-3">
+                  {showEnglish ? (
+                    <p className="text-center text-sm md:text-base opacity-90">
+                      {displayVocab.defEn}
+                    </p>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowEnglish(true); }}
+                      className="text-xs text-white/60 hover:text-white/90 transition-colors underline underline-offset-2"
+                    >
+                      Show English Meaning
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* IPA Pronunciation */}
+              {ipa && (
+                <p className="text-base md:text-lg opacity-90 font-serif mb-2">/{ipa}/</p>
+              )}
+
+              {/* Part of Speech Badge */}
+              {displayVocab.type && (
+                <span className="px-3 py-1 rounded-full bg-white/20 text-sm font-medium">
+                  {displayVocab.type}
+                </span>
               )}
             </div>
           </div>
