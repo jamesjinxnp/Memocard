@@ -1,4 +1,5 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
+import { relations } from 'drizzle-orm';
 
 // ==================== USERS ====================
 export const users = sqliteTable('users', {
@@ -10,6 +11,13 @@ export const users = sqliteTable('users', {
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp' }),
 });
+
+// Users relations
+export const usersRelations = relations(users, ({ many }) => ({
+    cards: many(cards),
+    reviewLogs: many(reviewLogs),
+    studySessions: many(studySessions),
+}));
 
 // ==================== VOCABULARY ====================
 export const vocabulary = sqliteTable('vocabulary', {
@@ -28,6 +36,11 @@ export const vocabulary = sqliteTable('vocabulary', {
     imageUrl: text('image_url'), // Cloudinary URL
     tag: text('tag'), // Comma-separated tags: "oxford3000,Toeic,Level 600"
 });
+
+// Vocabulary relations
+export const vocabularyRelations = relations(vocabulary, ({ many }) => ({
+    cards: many(cards),
+}));
 
 // ==================== CARDS (FSRS State) ====================
 export const cards = sqliteTable('cards', {
@@ -48,7 +61,25 @@ export const cards = sqliteTable('cards', {
     lastReview: integer('last_review', { mode: 'timestamp' }),
 
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-});
+}, (table) => [
+    // Composite index for optimized queue queries: WHERE userId = ? AND state = ? AND due <= ?
+    index('idx_cards_user_due_state').on(table.userId, table.due, table.state),
+    // Additional index for state-based counts
+    index('idx_cards_user_state').on(table.userId, table.state),
+]);
+
+// Cards relations
+export const cardsRelations = relations(cards, ({ one, many }) => ({
+    user: one(users, {
+        fields: [cards.userId],
+        references: [users.id],
+    }),
+    vocabulary: one(vocabulary, {
+        fields: [cards.vocabularyId],
+        references: [vocabulary.id],
+    }),
+    reviewLogs: many(reviewLogs),
+}));
 
 // ==================== REVIEW LOGS ====================
 export const reviewLogs = sqliteTable('review_logs', {
@@ -68,7 +99,22 @@ export const reviewLogs = sqliteTable('review_logs', {
     scheduledDays: integer('scheduled_days'),
 
     reviewedAt: integer('reviewed_at', { mode: 'timestamp' }).notNull(),
-});
+}, (table) => [
+    // Index for user's review history queries
+    index('idx_review_logs_user_reviewed').on(table.userId, table.reviewedAt),
+]);
+
+// Review logs relations
+export const reviewLogsRelations = relations(reviewLogs, ({ one }) => ({
+    card: one(cards, {
+        fields: [reviewLogs.cardId],
+        references: [cards.id],
+    }),
+    user: one(users, {
+        fields: [reviewLogs.userId],
+        references: [users.id],
+    }),
+}));
 
 // ==================== STUDY SESSIONS ====================
 export const studySessions = sqliteTable('study_sessions', {
@@ -81,6 +127,14 @@ export const studySessions = sqliteTable('study_sessions', {
     startedAt: integer('started_at', { mode: 'timestamp' }).notNull(),
     completedAt: integer('completed_at', { mode: 'timestamp' }),
 });
+
+// Study sessions relations
+export const studySessionsRelations = relations(studySessions, ({ one }) => ({
+    user: one(users, {
+        fields: [studySessions.userId],
+        references: [users.id],
+    }),
+}));
 
 // Type exports
 export type User = typeof users.$inferSelect;

@@ -76,6 +76,7 @@ const study = new Elysia({ prefix: '/study' })
 
     // ==================== GET STUDY QUEUE (Tree Model) ====================
     // Priority: Relearning → Learning → Review → New
+    // Optimized: Uses Promise.all() for parallel query execution
     .get('/queue', async ({ user, set, query }) => {
         if (!user) {
             set.status = 401;
@@ -90,99 +91,92 @@ const study = new Elysia({ prefix: '/study' })
         // Build deck filter if specified (return always-true condition if no deck)
         const deckFilter = deck ? like(vocabulary.tag, `%${deck}%`) : sql`1=1`;
 
-        // 0. Relearning cards (forgot - highest priority!)
-        const relearningCards = await db
-            .select({ card: cards, vocab: vocabulary })
-            .from(cards)
-            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
-            .where(and(
-                eq(cards.userId, user.userId),
-                eq(cards.state, 3), // Relearning
-                lte(cards.due, now),
-                deckFilter
-            ))
-            .orderBy(asc(cards.due))
-            .limit(50);
+        // Helper function to build card query by state
+        const buildCardQuery = (state: number, limit: number, useDue = true) =>
+            db.select({ card: cards, vocab: vocabulary })
+                .from(cards)
+                .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+                .where(and(
+                    eq(cards.userId, user.userId),
+                    eq(cards.state, state),
+                    useDue ? lte(cards.due, now) : sql`1=1`,
+                    deckFilter
+                ))
+                .orderBy(useDue ? asc(cards.due) : asc(cards.createdAt))
+                .limit(limit);
 
-        // 1. Learning cards (seedlings) - need frequent attention
-        const learningCards = await db
-            .select({ card: cards, vocab: vocabulary })
-            .from(cards)
-            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
-            .where(and(
-                eq(cards.userId, user.userId),
-                eq(cards.state, 1), // Learning
-                lte(cards.due, now),
-                deckFilter
-            ))
-            .orderBy(asc(cards.due))
-            .limit(50);
+        // ==================== PARALLEL BATCH 1: Fetch all card lists ====================
+        const [
+            relearningCards,
+            learningCards,
+            reviewCards,
+            newCards,
+        ] = await Promise.all([
+            buildCardQuery(3, 50),    // Relearning (forgot - highest priority!)
+            buildCardQuery(1, 50),    // Learning (seedlings)
+            buildCardQuery(2, 50),    // Review (trees)
+            db.select({ card: cards, vocab: vocabulary })  // New cards (use createdAt order)
+                .from(cards)
+                .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+                .where(and(
+                    eq(cards.userId, user.userId),
+                    eq(cards.state, 0),
+                    deckFilter
+                ))
+                .orderBy(asc(cards.createdAt))
+                .limit(dailyNewLimit),
+        ]);
 
-        // 2. Review cards (trees needing maintenance)
-        const reviewCards = await db
-            .select({ card: cards, vocab: vocabulary })
-            .from(cards)
-            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
-            .where(and(
-                eq(cards.userId, user.userId),
-                eq(cards.state, 2), // Review
-                lte(cards.due, now),
-                deckFilter
-            ))
-            .orderBy(asc(cards.due))
-            .limit(50);
+        // ==================== PARALLEL BATCH 2: Fetch all counts ====================
+        const [
+            newCardsTodayResult,
+            studiedTodayResult,
+            totalNewResult,
+            totalRelearningResult,
+            totalLearningResult,
+            totalReviewResult,
+        ] = await Promise.all([
+            // Count NEW cards created today (still in New state)
+            db.select({ count: sql<number>`COUNT(*)` })
+                .from(cards)
+                .where(and(
+                    eq(cards.userId, user.userId),
+                    eq(cards.state, 0),
+                    gte(cards.createdAt, todayStart)
+                )),
+            // Count cards studied today (transitioned from New)
+            db.select({ count: sql<number>`COUNT(*)` })
+                .from(cards)
+                .where(and(
+                    eq(cards.userId, user.userId),
+                    sql`${cards.state} > 0`,
+                    gte(cards.createdAt, todayStart)
+                )),
+            // Total New cards available
+            db.select({ count: sql<number>`COUNT(*)` })
+                .from(cards)
+                .where(and(
+                    eq(cards.userId, user.userId),
+                    eq(cards.state, 0)
+                )),
+            // Total Relearning cards (for Progress UI)
+            db.select({ count: sql<number>`COUNT(*)` })
+                .from(cards)
+                .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+                .where(and(eq(cards.userId, user.userId), eq(cards.state, 3), deckFilter)),
+            // Total Learning cards
+            db.select({ count: sql<number>`COUNT(*)` })
+                .from(cards)
+                .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+                .where(and(eq(cards.userId, user.userId), eq(cards.state, 1), deckFilter)),
+            // Total Review cards
+            db.select({ count: sql<number>`COUNT(*)` })
+                .from(cards)
+                .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+                .where(and(eq(cards.userId, user.userId), eq(cards.state, 2), deckFilter)),
+        ]);
 
-        // 3. Count NEW cards (state=0) that were started today (to track daily quota)
-        // We count cards that transitioned FROM new state today (not all cards created)
-        const newCardsTodayResult = await db
-            .select({ count: sql<number>`COUNT(*)` })
-            .from(cards)
-            .where(and(
-                eq(cards.userId, user.userId),
-                eq(cards.state, 0), // Still in New state
-                gte(cards.createdAt, todayStart)
-            ));
-        // Count is cards created today that are STILL new (not yet studied)
-        // For quota, we want cards that WERE new but now are Learning/Review
-        const studiedTodayResult = await db
-            .select({ count: sql<number>`COUNT(*)` })
-            .from(cards)
-            .where(and(
-                eq(cards.userId, user.userId),
-                sql`${cards.state} > 0`, // Learning, Review, or Relearning
-                gte(cards.createdAt, todayStart) // Created today
-            ));
         const studiedToday = studiedTodayResult[0]?.count || 0;
-
-        // 4. Calculate remaining quota for new cards
-        // Simple: just limit new cards to dailyNewLimit per session
-        const hasAnyDueCards = relearningCards.length > 0 || learningCards.length > 0 || reviewCards.length > 0;
-
-        // 5. New cards limit logic:
-        // - Always respect dailyNewLimit from user settings
-        // - If there are due cards, we still show new cards but user might want to focus on reviews first
-        const effectiveLimit = dailyNewLimit;
-
-        const newCards = await db
-            .select({ card: cards, vocab: vocabulary })
-            .from(cards)
-            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
-            .where(and(
-                eq(cards.userId, user.userId),
-                eq(cards.state, 0), // New
-                deckFilter
-            ))
-            .orderBy(asc(cards.createdAt))
-            .limit(effectiveLimit);
-
-        // 6. Count total New cards available
-        const totalNewResult = await db
-            .select({ count: sql<number>`COUNT(*)` })
-            .from(cards)
-            .where(and(
-                eq(cards.userId, user.userId),
-                eq(cards.state, 0)
-            ));
         const totalNew = totalNewResult[0]?.count || 0;
 
         // Format cards for response
@@ -192,23 +186,6 @@ const study = new Elysia({ prefix: '/study' })
                 vocabulary: vocab,
                 state: card.state,
             }));
-
-        // Count ALL cards by state (not just due) for Progress UI
-        const totalRelearningResult = await db
-            .select({ count: sql<number>`COUNT(*)` })
-            .from(cards)
-            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
-            .where(and(eq(cards.userId, user.userId), eq(cards.state, 3), deckFilter));
-        const totalLearningResult = await db
-            .select({ count: sql<number>`COUNT(*)` })
-            .from(cards)
-            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
-            .where(and(eq(cards.userId, user.userId), eq(cards.state, 1), deckFilter));
-        const totalReviewResult = await db
-            .select({ count: sql<number>`COUNT(*)` })
-            .from(cards)
-            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
-            .where(and(eq(cards.userId, user.userId), eq(cards.state, 2), deckFilter));
 
         return {
             relearning: formatCards(relearningCards), // ลืมแล้ว ต้องรีบกลับมา
@@ -232,7 +209,7 @@ const study = new Elysia({ prefix: '/study' })
             quota: {
                 daily: dailyNewLimit,
                 used: studiedToday,
-                remaining: effectiveLimit,
+                remaining: dailyNewLimit,
             },
             needMoreSeeds: totalNew < 10,
         };

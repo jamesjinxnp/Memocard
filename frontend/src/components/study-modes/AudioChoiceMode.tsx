@@ -56,6 +56,8 @@ export default function AudioChoiceMode({ vocabulary, distractors, onRate }: Aud
 
     try {
       await speakWord(option.word);
+    } catch (err) {
+      console.warn('Audio playback error:', err);
     } finally {
       // Only clear playing state if this audio wasn't interrupted
       if (currentPlayingRef.current === option.id) {

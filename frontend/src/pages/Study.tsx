@@ -241,16 +241,38 @@ export default function Study() {
     // Fetch distractors for choice modes
     useEffect(() => {
         const fetchDistractors = async () => {
-            const currentMode = isMultiMode ? getCurrentMode() : mode;
-            const cardState = getCurrentCardState();
+            // Compute currentMode and cardState inside the effect to avoid function dependencies
+            let currentModeValue: string | null = null;
+            let cardStateValue: CardStudyState | null = null;
 
-            if ((currentMode === 'multiple_choice' || currentMode === 'audio_choice') && cardState) {
-                const response = await vocabularyApi.getRandom(3, undefined, [cardState.vocabulary.id]);
-                setDistractors(shuffleArray([...response.data.items || []]));
+            if (isMultiMode && cardStates.length > 0) {
+                const card = cardStates[currentCardIdx];
+                if (card && !card.isComplete) {
+                    cardStateValue = card;
+                    // Determine current mode
+                    if (card.retryQueue.length > 0 && card.currentModeIndex > currentRound) {
+                        currentModeValue = card.retryQueue[0];
+                    } else if (card.currentModeIndex <= currentRound && card.currentModeIndex < card.modeQueue.length) {
+                        currentModeValue = card.modeQueue[card.currentModeIndex];
+                    } else if (card.currentModeIndex >= card.modeQueue.length && card.retryQueue.length > 0) {
+                        currentModeValue = card.retryQueue[0];
+                    }
+                }
+            } else {
+                currentModeValue = mode || null;
+            }
+
+            if ((currentModeValue === 'multiple_choice' || currentModeValue === 'audio_choice') && cardStateValue) {
+                try {
+                    const response = await vocabularyApi.getRandom(3, undefined, [cardStateValue.vocabulary.id]);
+                    setDistractors(shuffleArray([...response.data.items || []]));
+                } catch (err) {
+                    console.warn('Failed to fetch distractors:', err);
+                }
             }
         };
         fetchDistractors();
-    }, [isMultiMode, getCurrentMode, getCurrentCardState, mode, currentCardIdx]);
+    }, [isMultiMode, cardStates.length, currentCardIdx, currentRound, mode]);
 
     // Submit review mutation
     const reviewMutation = useMutation({

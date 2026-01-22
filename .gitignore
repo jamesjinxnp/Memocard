@@ -54,6 +54,9 @@ backend/dist/
 
 # Gemini/AI artifacts (optional - remove if you want to track these)
 .gemini/
+.agent/
+.agents/
+.opencode/
 
 # Source
 source/

@@ -67,7 +67,11 @@ export function speak(text: string, options: SpeakOptions = {}): Promise<void> {
         }
 
         utterance.onend = () => resolve();
-        utterance.onerror = (event) => reject(event);
+        utterance.onerror = (event) => {
+            // Log the error but resolve to prevent app from hanging
+            console.warn('Speech synthesis error:', event.error, 'for text:', text);
+            resolve();
+        };
 
         speechSynthesis.speak(utterance);
     });
