@@ -1,13 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { User, CardWithVocabulary, StudyModeType } from '@/types/schema';
 
 // ==================== AUTH STORE ====================
-interface User {
-    id: string;
-    email: string;
-    name?: string;
-    preferences?: string; // JSON string
-}
 
 interface AuthState {
     user: User | null;
@@ -39,22 +34,29 @@ export const useAuthStore = create<AuthState>()(
 );
 
 // ==================== STUDY STORE ====================
+
+/** Session state for single-mode study */
+interface StudySessionState {
+    id: string;
+    mode: StudyModeType;
+    cards: CardWithVocabulary[];
+    currentIndex: number;
+}
+
+/** Stats displayed on dashboard/deck pages */
+interface StudyStats {
+    totalCards: number;
+    reviewsToday: number;
+    dueToday: number;
+}
+
 interface StudyState {
-    currentSession: {
-        id: string;
-        mode: string;
-        cards: any[];
-        currentIndex: number;
-    } | null;
-    stats: {
-        totalCards: number;
-        reviewsToday: number;
-        dueToday: number;
-    };
-    startSession: (session: { id: string; mode: string; cards: any[] }) => void;
+    currentSession: StudySessionState | null;
+    stats: StudyStats;
+    startSession: (session: { id: string; mode: StudyModeType; cards: CardWithVocabulary[] }) => void;
     nextCard: () => void;
     endSession: () => void;
-    setStats: (stats: any) => void;
+    setStats: (stats: StudyStats) => void;
 }
 
 export const useStudyStore = create<StudyState>((set) => ({

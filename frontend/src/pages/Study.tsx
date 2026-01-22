@@ -14,9 +14,13 @@ import {
     SpellingBeeMode,
     AudioChoiceMode,
 } from '@/components/study-modes';
+import type {
+    StudyModeType,
+    Vocabulary,
+    CardStateValue,
+} from '@/types/schema';
 
-// ==================== Types ====================
-type StudyModeType = 'reading' | 'typing' | 'listening' | 'multiple_choice' | 'cloze' | 'spelling' | 'audio_choice';
+// ==================== Constants ====================
 
 // Hard modes = Active production (more difficult)
 const HARD_MODES: StudyModeType[] = ['spelling', 'typing', 'listening'];
@@ -35,11 +39,11 @@ const MODE_NAMES: Record<string, string> = {
     multi: 'Multi-Mode',
 };
 
-// Card state for interleaving
+// Card state for interleaving (local version without Map serialization issues)
 interface CardStudyState {
     cardId: string;
-    vocabulary: any;
-    originalState: number; // 0=New, 1=Learning, 2=Review, 3=Relearning
+    vocabulary: Vocabulary;
+    originalState: CardStateValue;
     modeQueue: StudyModeType[];
     currentModeIndex: number;
     retryQueue: StudyModeType[];
@@ -122,7 +126,7 @@ export default function Study() {
     const [cardStates, setCardStates] = useState<CardStudyState[]>([]);
     const [currentCardIdx, setCurrentCardIdx] = useState(0);
     const [currentRound, setCurrentRound] = useState(0); // Global round tracking for mode consistency
-    const [distractors, setDistractors] = useState<any[]>([]);
+    const [distractors, setDistractors] = useState<Vocabulary[]>([]);
     const [sessionComplete, setSessionComplete] = useState(false);
     const [completedCount, setCompletedCount] = useState(0);
 
