@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { studyApi, vocabularyApi } from '@/services/api';
+import { useQuery } from '@tanstack/react-query';
+import { studyApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, PartyPopper, Loader2 } from 'lucide-react';
@@ -14,19 +14,10 @@ import {
     SpellingBeeMode,
     AudioChoiceMode,
 } from '@/components/study-modes';
-import type {
-    StudyModeType,
-    Vocabulary,
-    CardStateValue,
-} from '@/types/schema';
+import { useMultiModeSession, useStudyReview, useDistractors } from '@/hooks/study';
+import type { StudyModeType } from '@/types/schema';
 
 // ==================== Constants ====================
-
-// Hard modes = Active production (more difficult)
-const HARD_MODES: StudyModeType[] = ['spelling', 'typing', 'listening'];
-
-// Mode pools for selection
-const ALL_MODES: StudyModeType[] = ['typing', 'listening', 'multiple_choice', 'cloze', 'spelling', 'audio_choice'];
 
 const MODE_NAMES: Record<string, string> = {
     reading: 'Reading',
@@ -39,82 +30,8 @@ const MODE_NAMES: Record<string, string> = {
     multi: 'Multi-Mode',
 };
 
-// Card state for interleaving (local version without Map serialization issues)
-interface CardStudyState {
-    cardId: string;
-    vocabulary: Vocabulary;
-    originalState: CardStateValue;
-    modeQueue: StudyModeType[];
-    currentModeIndex: number;
-    retryQueue: StudyModeType[];
-    modeAttempts: Map<StudyModeType, number>;
-    usedHint: boolean;
-    isComplete: boolean;
-}
-
-// ==================== Helpers ====================
-function shuffleArray<T>(array: T[]): T[] {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-}
-
-// Get modes based on card state
-function getModesForCardState(state: number): StudyModeType[] {
-    switch (state) {
-        case 0: // New - Reading + 3 Active modes (4 total as per Complete Flow)
-            return ['reading', ...shuffleArray(['multiple_choice', 'audio_choice', 'cloze', 'typing'] as StudyModeType[]).slice(0, 3)];
-        case 1: // Learning - 2-3 Medium modes
-            return shuffleArray(['cloze', 'audio_choice', 'multiple_choice', 'spelling'] as StudyModeType[]).slice(0, 3);
-        case 2: // Review - 2 Hard modes
-            return shuffleArray(['spelling', 'typing', 'listening'] as StudyModeType[]).slice(0, 2);
-        case 3: // Relearning - Reading + 2 Medium
-            return ['reading', ...shuffleArray(['cloze', 'audio_choice', 'multiple_choice'] as StudyModeType[]).slice(0, 2)];
-        default:
-            return ['reading', ...shuffleArray(ALL_MODES).slice(0, 3)];
-    }
-}
-
-// Adaptive Mode Selection: Get next mode pool based on previous rating
-function getNextModePool(previousRating: number): StudyModeType[] {
-    switch (previousRating) {
-        case 4: // Easy → ท้าทายขึ้น
-            return ['spelling', 'typing', 'listening'];
-        case 3: // Good → ท้าทายเล็กน้อย
-            return ['cloze', 'audio_choice', 'spelling', 'typing'];
-        case 2: // Hard → ฝึกเพิ่ม
-            return ['multiple_choice', 'audio_choice', 'cloze'];
-        case 1: // Again → กลับมาดูใหม่
-            return ['reading', 'multiple_choice'];
-        default:
-            return ['cloze', 'audio_choice'];
-    }
-}
-
-// Penalty Logic: Calculate final rating based on mode results
-function calculateFinalRating(cardState: CardStudyState): number {
-    const totalFails = Array.from(cardState.modeAttempts.values()).reduce((sum, attempts) => sum + Math.max(0, attempts - 1), 0);
-    const hardModeFails = Array.from(cardState.modeAttempts.entries())
-        .filter(([mode]) => HARD_MODES.includes(mode))
-        .reduce((sum, [, attempts]) => sum + Math.max(0, attempts - 1), 0);
-
-    // Perfect: All correct first try + no hint
-    if (totalFails === 0 && !cardState.usedHint) return 4; // Easy
-
-    // Minor: 1 fail or used hint
-    if (totalFails <= 1) return 3; // Good
-
-    // Struggle in Hard Mode: 3+ fails in hard modes
-    if (hardModeFails >= 3) return 1; // Again
-
-    // Multiple fails
-    return 2; // Hard
-}
-
 // ==================== Component ====================
+
 export default function Study() {
     const { mode } = useParams<{ mode: string }>();
     const [searchParams] = useSearchParams();
@@ -122,77 +39,40 @@ export default function Study() {
     const deckId = searchParams.get('deck');
     const isMultiMode = mode === 'multi';
 
-    // Session state
-    const [cardStates, setCardStates] = useState<CardStudyState[]>([]);
-    const [currentCardIdx, setCurrentCardIdx] = useState(0);
-    const [currentRound, setCurrentRound] = useState(0); // Global round tracking for mode consistency
-    const [distractors, setDistractors] = useState<Vocabulary[]>([]);
-    const [sessionComplete, setSessionComplete] = useState(false);
-    const [completedCount, setCompletedCount] = useState(0);
-
-    // Single mode state (legacy)
-    const [sessionId, setSessionId] = useState<string | null>(null);
-    const [currentCardIndex, setCurrentCardIndex] = useState(0);
-    const [completed, setCompleted] = useState(false);
-
-    // Get daily limit from localStorage - read fresh on mount
+    // ==================== Daily Limit ====================
     const getDailyLimit = () => {
         const settings = localStorage.getItem(`deck-settings-${deckId}`);
         return settings ? JSON.parse(settings).dailyNewCards || 20 : 20;
     };
     const dailyLimit = getDailyLimit();
 
-    // Fetch cards for multi-mode using Tree Model queue
-    const { data: multiModeData, isLoading: multiLoading } = useQuery({
-        queryKey: ['multi-study-queue', deckId, dailyLimit],
-        queryFn: async () => {
-            let queueResponse = await studyApi.getQueue(deckId || undefined, dailyLimit);
-            let queue = queueResponse.data;
+    // ==================== Multi-Mode Session Hook ====================
+    const multiModeSession = useMultiModeSession(deckId, dailyLimit, isMultiMode);
+    const {
+        cardStates,
+        currentCardIdx,
+        currentRound,
+        isLoading: multiLoading,
+        sessionComplete,
+        completedCount,
+        multiModeData,
+        getCurrentCardState,
+        getCurrentMode,
+        setCardStates,
+        setCurrentCardIdx,
+        setCurrentRound,
+        setCompletedCount,
+        totalCards: multiTotalCards,
+        progressPercent: multiProgressPercent,
+        isRetrying,
+    } = multiModeSession;
 
-            if (queue.needMoreSeeds && deckId) {
-                await studyApi.learnDeck(deckId, dailyLimit);
-                queueResponse = await studyApi.getQueue(deckId, dailyLimit);
-                queue = queueResponse.data;
-            }
+    // ==================== Single Mode State (Legacy) ====================
+    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [currentCardIndex, setCurrentCardIndex] = useState(0);
+    const [completed, setCompleted] = useState(false);
 
-            // Combine cards with their states in priority order:
-            // Relearning (3) → Learning (1) → Review (2) → New (0)
-            const allCards = [
-                ...(queue.relearning || []).map((c: any) => ({ ...c, originalState: 3 })),
-                ...queue.learning.map((c: any) => ({ ...c, originalState: 1 })),
-                ...queue.due.map((c: any) => ({ ...c, originalState: 2 })),
-                ...queue.new.map((c: any) => ({ ...c, originalState: 0 })),
-            ];
-
-            return {
-                cards: allCards,
-                counts: queue.counts,
-                quota: queue.quota,
-            };
-        },
-        enabled: isMultiMode && !!deckId,
-    });
-
-    // Initialize card states when data loads
-    useEffect(() => {
-        if (isMultiMode && multiModeData?.cards?.length > 0 && cardStates.length === 0) {
-            const initialStates: CardStudyState[] = multiModeData.cards.map((card: any) => ({
-                cardId: card.id,
-                vocabulary: card.vocabulary,
-                originalState: card.originalState || 0,
-                modeQueue: getModesForCardState(card.originalState || 0),
-                currentModeIndex: 0,
-                retryQueue: [],
-                modeAttempts: new Map(),
-                usedHint: false,
-                isComplete: false,
-            }));
-            setCardStates(initialStates);
-            setCurrentCardIdx(0);
-        }
-    }, [isMultiMode, multiModeData, cardStates.length]);
-
-    // Fetch session for single mode (legacy)
+    // Single mode data fetch
     const { data: sessionData, isLoading: singleLoading } = useQuery({
         queryKey: ['study-session', mode],
         queryFn: async () => {
@@ -203,187 +83,40 @@ export default function Study() {
         enabled: !isMultiMode && !!mode,
     });
 
-
-    // Current card state helper - uses direct index on full array
-    const getCurrentCardState = useCallback(() => {
-        if (!isMultiMode || cardStates.length === 0) return null;
-        const card = cardStates[currentCardIdx];
-        if (!card || card.isComplete) return null;
-        return card;
-    }, [isMultiMode, cardStates, currentCardIdx]);
-
-    // Get current mode for current card - respects round-based consistency
-    const getCurrentMode = useCallback((): StudyModeType | null => {
-        const cardState = getCurrentCardState();
-        if (!cardState) return null;
-
-        // If card has retry queue and already past the current round, process retry first
-        if (cardState.retryQueue.length > 0 && cardState.currentModeIndex > currentRound) {
-            return cardState.retryQueue[0];
-        }
-
-        // If card still needs to do current round's mode
-        if (cardState.currentModeIndex <= currentRound && cardState.currentModeIndex < cardState.modeQueue.length) {
-            return cardState.modeQueue[cardState.currentModeIndex];
-        }
-
-        // If card finished all queue modes but has retry
-        if (cardState.currentModeIndex >= cardState.modeQueue.length && cardState.retryQueue.length > 0) {
-            return cardState.retryQueue[0];
-        }
-
-        return null;
-    }, [getCurrentCardState, currentRound]);
-
-    // Session completion check - uses useEffect to react to state changes properly
-    useEffect(() => {
-        if (isMultiMode && cardStates.length > 0 && cardStates.every(c => c.isComplete)) {
-            setSessionComplete(true);
-        }
-    }, [isMultiMode, cardStates]);
-
-    // Fetch distractors for choice modes
-    useEffect(() => {
-        const fetchDistractors = async () => {
-            // Compute currentMode and cardState inside the effect to avoid function dependencies
-            let currentModeValue: string | null = null;
-            let cardStateValue: CardStudyState | null = null;
-
-            if (isMultiMode && cardStates.length > 0) {
-                const card = cardStates[currentCardIdx];
-                if (card && !card.isComplete) {
-                    cardStateValue = card;
-                    // Determine current mode
-                    if (card.retryQueue.length > 0 && card.currentModeIndex > currentRound) {
-                        currentModeValue = card.retryQueue[0];
-                    } else if (card.currentModeIndex <= currentRound && card.currentModeIndex < card.modeQueue.length) {
-                        currentModeValue = card.modeQueue[card.currentModeIndex];
-                    } else if (card.currentModeIndex >= card.modeQueue.length && card.retryQueue.length > 0) {
-                        currentModeValue = card.retryQueue[0];
-                    }
-                }
-            } else {
-                currentModeValue = mode || null;
-            }
-
-            if ((currentModeValue === 'multiple_choice' || currentModeValue === 'audio_choice') && cardStateValue) {
-                try {
-                    const response = await vocabularyApi.getRandom(3, undefined, [cardStateValue.vocabulary.id]);
-                    setDistractors(shuffleArray([...response.data.items || []]));
-                } catch (err) {
-                    console.warn('Failed to fetch distractors:', err);
-                }
-            }
-        };
-        fetchDistractors();
-    }, [isMultiMode, cardStates.length, currentCardIdx, currentRound, mode]);
-
-    // Submit review mutation
-    const reviewMutation = useMutation({
-        mutationFn: async ({ cardId, rating }: { cardId: string; rating: number }) => {
-            return studyApi.submitReview({
-                cardId,
-                rating,
-                studyMode: isMultiMode ? 'multi' : mode!,
-            });
-        },
+    // ==================== Study Review Hook ====================
+    const { handleRate } = useStudyReview({
+        isMultiMode,
+        cardStates,
+        currentCardIdx,
+        currentRound,
+        getCurrentMode,
+        setCardStates,
+        setCurrentCardIdx,
+        setCurrentRound,
+        setCompletedCount,
+        sessionData,
+        sessionId,
+        currentCardIndex,
+        setCurrentCardIndex,
+        setCompleted,
+        mode,
     });
 
-    // Handle mode result (pass/fail)
-    const handleRate = (rating: number) => {
-        if (!isMultiMode) {
-            // Single mode: submit directly
-            const currentCard = sessionData?.cards[currentCardIndex];
-            if (currentCard) {
-                reviewMutation.mutate({ cardId: currentCard.id, rating });
-                if (currentCardIndex < sessionData.cards.length - 1) {
-                    setCurrentCardIndex(prev => prev + 1);
-                } else {
-                    setCompleted(true);
-                    if (sessionId) studyApi.completeSession(sessionId);
-                }
-            }
-            return;
-        }
+    // ==================== Current Card/Mode ====================
+    const currentCardState = getCurrentCardState();
+    const currentMode = isMultiMode ? getCurrentMode() : (mode as StudyModeType);
+    const vocabulary = isMultiMode
+        ? currentCardState?.vocabulary
+        : sessionData?.cards[currentCardIndex]?.vocabulary;
 
-        // Multi-mode: Card Interleaving + Penalty Logic
-        const passed = rating >= 3;
-        const currentMode = getCurrentMode();
-        if (!currentMode) return;
+    // ==================== Distractors Hook ====================
+    const { distractors } = useDistractors({
+        currentMode,
+        currentVocabularyId: vocabulary?.id,
+        enabled: isMultiMode && !!vocabulary,
+    });
 
-        // Helper to find next incomplete card in the given states array
-        const findNext = (fromIdx: number, states: CardStudyState[]): number => {
-            const len = states.length;
-            if (len === 0) return -1;
-            for (let i = 1; i <= len; i++) {
-                const idx = (fromIdx + i) % len;
-                if (!states[idx].isComplete) {
-                    return idx;
-                }
-            }
-            return -1;
-        };
-
-        // Use flushSync or compute synchronously
-        let computedNextIdx = currentCardIdx;
-        let computedShouldAdvanceRound = false;
-
-        const newStates = cardStates.map(c => ({ ...c, modeAttempts: new Map(c.modeAttempts), retryQueue: [...c.retryQueue] }));
-        const cardState = newStates[currentCardIdx];
-
-        if (cardState && !cardState.isComplete) {
-            if (passed) {
-                // Remove from retry queue if present
-                cardState.retryQueue = cardState.retryQueue.filter(m => m !== currentMode);
-
-                // Record attempt (1 = correct first try)
-                if (!cardState.modeAttempts.has(currentMode)) {
-                    cardState.modeAttempts.set(currentMode, 1);
-                }
-
-                // Move to next mode or check completion
-                if (cardState.retryQueue.length === 0) {
-                    if (cardState.currentModeIndex >= cardState.modeQueue.length - 1) {
-                        // All modes done, card complete
-                        cardState.isComplete = true;
-                        const finalRating = calculateFinalRating(cardState);
-                        reviewMutation.mutate({ cardId: cardState.cardId, rating: finalRating });
-                        setCompletedCount(c => c + 1);
-                    } else {
-                        cardState.currentModeIndex++;
-                    }
-                }
-            } else {
-                // Failed - add to retry queue
-                if (!cardState.retryQueue.includes(currentMode)) {
-                    cardState.retryQueue.push(currentMode);
-                }
-                // Increment attempts
-                cardState.modeAttempts.set(currentMode, (cardState.modeAttempts.get(currentMode) || 0) + 1);
-            }
-
-            // Check if all cards have passed current round - advance global round
-            const allPassedCurrentRound = newStates.every(
-                c => c.isComplete || c.currentModeIndex > currentRound
-            );
-            if (allPassedCurrentRound) {
-                computedShouldAdvanceRound = true;
-            }
-
-            // Compute next card index using the UPDATED states
-            computedNextIdx = findNext(currentCardIdx, newStates);
-            if (computedNextIdx < 0) computedNextIdx = currentCardIdx;
-        }
-
-        // Apply all state updates together
-        setCardStates(newStates);
-        if (computedShouldAdvanceRound) {
-            setCurrentRound(r => r + 1);
-        }
-        setCurrentCardIdx(computedNextIdx);
-    };
-
-    // Loading state
+    // ==================== Loading State ====================
     const isLoading = isMultiMode ? multiLoading : singleLoading;
     if (isLoading) {
         return (
@@ -393,7 +126,7 @@ export default function Study() {
         );
     }
 
-    // No cards
+    // ==================== No Cards ====================
     const hasCards = isMultiMode ? cardStates.length > 0 : sessionData?.cards?.length > 0;
     if (!hasCards) {
         return (
@@ -408,7 +141,7 @@ export default function Study() {
         );
     }
 
-    // Session complete
+    // ==================== Session Complete ====================
     if (sessionComplete || completed) {
         const totalCards = isMultiMode ? cardStates.length : sessionData?.cards?.length || 0;
         return (
@@ -432,11 +165,7 @@ export default function Study() {
         );
     }
 
-    // Get current card and mode
-    const currentCardState = getCurrentCardState();
-    const currentMode = isMultiMode ? getCurrentMode() : (mode as StudyModeType);
-    const vocabulary = isMultiMode ? currentCardState?.vocabulary : sessionData?.cards[currentCardIndex]?.vocabulary;
-
+    // ==================== No Vocabulary/Mode Available ====================
     if (!vocabulary || !currentMode) {
         return (
             <div className="min-h-screen min-h-dvh w-full flex items-center justify-center bg-slate-900">
@@ -445,14 +174,13 @@ export default function Study() {
         );
     }
 
-    // Progress calculation
-    const totalCards = isMultiMode ? cardStates.length : sessionData?.cards?.length || 0;
-    const incompleteCount = isMultiMode ? cardStates.filter(c => !c.isComplete).length : totalCards - currentCardIndex;
-    const progressPercent = ((totalCards - incompleteCount) / totalCards) * 100;
+    // ==================== Progress Calculation ====================
+    const totalCards = isMultiMode ? multiTotalCards : sessionData?.cards?.length || 0;
+    const progressPercent = isMultiMode
+        ? multiProgressPercent
+        : ((currentCardIndex + 1) / totalCards) * 100;
 
-    // Check if in retry mode
-    const isRetrying = currentCardState && currentCardState.retryQueue.includes(currentMode);
-
+    // ==================== Render Mode ====================
     const renderMode = () => {
         switch (currentMode) {
             case 'reading':
@@ -567,9 +295,9 @@ export default function Study() {
                             <div
                                 key={i}
                                 className={`w-2 h-2 rounded-full transition-all ${isCompleted ? 'bg-green-500' :
-                                    isCurrent ? 'bg-primary scale-125' :
-                                        isRetryMode ? 'bg-amber-500' :
-                                            'bg-slate-600'
+                                        isCurrent ? 'bg-primary scale-125' :
+                                            isRetryMode ? 'bg-amber-500' :
+                                                'bg-slate-600'
                                     }`}
                                 title={MODE_NAMES[m]}
                             />
@@ -590,8 +318,6 @@ export default function Study() {
                     )}
                 </div>
             )}
-
-
 
             {/* Study Mode Content */}
             <main className="flex-1 flex items-center justify-center p-4 md:p-6">
