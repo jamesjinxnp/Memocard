@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { studyApi } from '@/services/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { studyApi, learningPathApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, PartyPopper, Loader2 } from 'lucide-react';
@@ -33,11 +33,14 @@ const MODE_NAMES: Record<string, string> = {
 // ==================== Component ====================
 
 export default function Study() {
-    const { mode } = useParams<{ mode: string }>();
+    const { mode, nodeId } = useParams<{ mode?: string; nodeId?: string }>();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const deckId = searchParams.get('deck');
-    const isMultiMode = mode === 'multi';
+
+    // Determine study context: node mode or deck review mode
+    const isNodeMode = !!nodeId;
+    const isMultiMode = isNodeMode || mode === 'multi';
 
     // ==================== Daily Limit ====================
     const getDailyLimit = () => {
@@ -47,7 +50,14 @@ export default function Study() {
     const dailyLimit = getDailyLimit();
 
     // ==================== Multi-Mode Session Hook ====================
-    const multiModeSession = useMultiModeSession(deckId, dailyLimit, isMultiMode);
+    // Node mode: uses sourceType 'node' with nodeId
+    // Deck review: uses sourceType 'review' with deckId
+    const multiModeSession = useMultiModeSession({
+        sourceType: isNodeMode ? 'node' : 'review',
+        sourceId: isNodeMode ? nodeId! : (deckId ?? ''),
+        dailyLimit,
+        enabled: isMultiMode,
+    });
     const {
         cardStates,
         currentCardIdx,
@@ -56,8 +66,10 @@ export default function Study() {
         sessionComplete,
         completedCount,
         multiModeData,
+        nodeSessionData,
         getCurrentCardState,
         getCurrentMode,
+        getTotalRetries,
         setCardStates,
         setCurrentCardIdx,
         setCurrentRound,
@@ -83,9 +95,72 @@ export default function Study() {
         enabled: !isMultiMode && !!mode,
     });
 
+    // ==================== Node Completion State ====================
+    const startTimeRef = useRef(Date.now());
+    const hasTriggeredCompletion = useRef(false); // Prevent infinite loop
+    const [nodeCompletionData, setNodeCompletionData] = useState<{
+        stars: number;
+        crowns: number;
+        xpEarned: number;
+        nextNodeId?: number;
+    } | null>(null);
+
+    // Calculate correct count from card states
+    const correctCount = cardStates.filter(c => {
+        const attempts = Array.from(c.modeAttempts.values());
+        const totalFails = attempts.reduce((sum, a) => sum + Math.max(0, a - 1), 0);
+        return totalFails === 0;
+    }).length;
+
+    // ==================== Complete Node Mutation ====================
+    const completeNodeMutation = useMutation({
+        mutationFn: async () => {
+            if (!nodeId) return null;
+            const duration = Date.now() - startTimeRef.current;
+
+            // Build results array from cardStates for proper FSRS logging
+            const results = cardStates.map(card => {
+                const attempts = Array.from(card.modeAttempts.values());
+                const totalFails = attempts.reduce((sum, a) => sum + Math.max(0, a - 1), 0);
+                let rating = 4; // Easy
+                if (totalFails >= 3) rating = 1; // Again
+                else if (totalFails >= 1) rating = totalFails === 1 ? 3 : 2;
+
+                return {
+                    vocabId: card.vocabulary.id,
+                    rating,
+                };
+            });
+
+            const response = await learningPathApi.completeNode(parseInt(nodeId), {
+                cardsReviewed: cardStates.length,
+                correctCount: correctCount,
+                responseTime: duration,
+                results,
+            });
+            return response.data;
+        },
+        onSuccess: (data) => {
+            if (data) setNodeCompletionData(data);
+        },
+        onError: (err) => {
+            console.error("Failed to complete node:", err);
+        }
+    });
+
+    // ==================== Trigger Node Completion ====================
+    useEffect(() => {
+        if (isNodeMode && sessionComplete && !hasTriggeredCompletion.current) {
+            hasTriggeredCompletion.current = true;
+            completeNodeMutation.mutate();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isNodeMode, sessionComplete]);
+
     // ==================== Study Review Hook ====================
     const { handleRate } = useStudyReview({
         isMultiMode,
+        isNodeMode,
         cardStates,
         currentCardIdx,
         currentRound,
@@ -144,6 +219,80 @@ export default function Study() {
     // ==================== Session Complete ====================
     if (sessionComplete || completed) {
         const totalCards = isMultiMode ? cardStates.length : sessionData?.cards?.length || 0;
+
+        // Node mode: Show loading while completing, then show results
+        if (isNodeMode) {
+            if (completeNodeMutation.isPending) {
+                return (
+                    <div className="min-h-screen min-h-dvh w-full flex items-center justify-center bg-slate-900">
+                        <div className="text-center space-y-4">
+                            <Loader2 className="size-12 text-primary animate-spin mx-auto" />
+                            <p className="text-slate-400">Saving your progress...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Show completion result with stars/XP
+            return (
+                <div className="min-h-screen min-h-dvh w-full flex items-center justify-center p-6 bg-slate-900">
+                    <Card className="max-w-md w-full text-center">
+                        <CardContent className="p-8 space-y-6">
+                            <PartyPopper className="size-16 text-amber-400 mx-auto" />
+                            <h2 className="text-2xl font-bold text-slate-100">Node Complete!</h2>
+
+                            {/* Stars Display */}
+                            {nodeCompletionData && (
+                                <div className="space-y-4">
+                                    <div className="flex justify-center gap-2">
+                                        {[1, 2, 3].map((star) => (
+                                            <span
+                                                key={star}
+                                                className={`text-4xl ${star <= nodeCompletionData.stars ? 'text-amber-400' : 'text-slate-600'}`}
+                                            >
+                                                ⭐
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-center gap-6 text-sm">
+                                        <div className="text-center">
+                                            <div className="text-2xl font-bold text-emerald-400">+{nodeCompletionData.xpEarned}</div>
+                                            <div className="text-slate-500">XP</div>
+                                        </div>
+                                        {nodeCompletionData.crowns > 0 && (
+                                            <div className="text-center">
+                                                <div className="text-2xl font-bold text-amber-400">+{nodeCompletionData.crowns}</div>
+                                                <div className="text-slate-500">Crowns</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            <p className="text-slate-400">You reviewed {totalCards} cards</p>
+
+                            <div className="flex gap-3 justify-center pt-4">
+                                {nodeCompletionData?.nextNodeId && (
+                                    <Button onClick={() => {
+                                        console.log('🚀 [Next Level] Navigating to next node:', nodeCompletionData.nextNodeId);
+                                        // Use window.location.href to force full page reload
+                                        // React Router navigate() doesn't re-mount when only the param changes
+                                        window.location.href = `/study/node/${nodeCompletionData.nextNodeId}`;
+                                    }}>
+                                        Next Level 🚀
+                                    </Button>
+                                )}
+                                <Button variant="outline" onClick={() => navigate(-1)}>
+                                    Back to Path
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            );
+        }
+
+        // Regular mode: simple completion card
         return (
             <div className="min-h-screen min-h-dvh w-full flex items-center justify-center p-6 bg-slate-900">
                 <Card className="max-w-md w-full text-center">
@@ -207,7 +356,16 @@ export default function Study() {
             {/* Header */}
             <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/95 backdrop-blur">
                 <div className="max-w-6xl mx-auto flex h-14 items-center justify-between px-4">
-                    <Button variant="ghost" size="sm" onClick={() => navigate(deckId ? `/deck/${deckId}` : '/')}>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                        if (isNodeMode && nodeSessionData?.deckId) {
+                            // Navigate back to learning path using deckId from session
+                            navigate(`/path/${nodeSessionData.deckId}`);
+                        } else if (deckId) {
+                            navigate(`/deck/${deckId}`);
+                        } else {
+                            navigate('/');
+                        }
+                    }}>
                         <ArrowLeft className="size-4" />
                         Back
                     </Button>
@@ -295,9 +453,9 @@ export default function Study() {
                             <div
                                 key={i}
                                 className={`w-2 h-2 rounded-full transition-all ${isCompleted ? 'bg-green-500' :
-                                        isCurrent ? 'bg-primary scale-125' :
-                                            isRetryMode ? 'bg-amber-500' :
-                                                'bg-slate-600'
+                                    isCurrent ? 'bg-primary scale-125' :
+                                        isRetryMode ? 'bg-amber-500' :
+                                            'bg-slate-600'
                                     }`}
                                 title={MODE_NAMES[m]}
                             />

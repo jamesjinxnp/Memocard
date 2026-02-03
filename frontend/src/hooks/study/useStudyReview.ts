@@ -8,6 +8,7 @@
  * - Card interleaving navigation
  */
 
+import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { studyApi } from '@/services/api';
 import type { StudyModeType } from '@/types/schema';
@@ -18,6 +19,7 @@ import type { CardStudyState } from './useMultiModeSession';
 interface UseStudyReviewParams {
     // Multi-mode state
     isMultiMode: boolean;
+    isNodeMode: boolean; // NEW: Skip real-time reviews for temp IDs
     cardStates: CardStudyState[];
     currentCardIdx: number;
     currentRound: number;
@@ -76,18 +78,29 @@ function calculateFinalRating(cardState: CardStudyState): number {
 }
 
 /**
- * Find next incomplete card index using round-robin
+ * Find next incomplete card index using round-robin, prioritizing current round
  */
-function findNextIncompleteCard(fromIdx: number, states: CardStudyState[]): number {
+function findNextIncompleteCard(fromIdx: number, states: CardStudyState[], currentRound: number): number {
     const len = states.length;
     if (len === 0) return -1;
 
+    // Pass 1: Look for incomplete cards in the CURRENT round
+    for (let i = 1; i <= len; i++) {
+        const idx = (fromIdx + i) % len;
+        if (!states[idx].isComplete && states[idx].currentModeIndex <= currentRound) {
+            return idx;
+        }
+    }
+
+    // Pass 2: If no cards for current round, look for ANY incomplete card
+    // (This usually means we should have advanced round, but provides a fallback)
     for (let i = 1; i <= len; i++) {
         const idx = (fromIdx + i) % len;
         if (!states[idx].isComplete) {
             return idx;
         }
     }
+
     return -1;
 }
 
@@ -95,6 +108,7 @@ function findNextIncompleteCard(fromIdx: number, states: CardStudyState[]): numb
 
 export function useStudyReview({
     isMultiMode,
+    isNodeMode,
     cardStates,
     currentCardIdx,
     currentRound,
@@ -111,6 +125,9 @@ export function useStudyReview({
     mode,
 }: UseStudyReviewParams): UseStudyReviewReturn {
 
+    // ==================== Local State ====================
+    const [isProcessing, setIsProcessing] = useState(false);
+
     // ==================== Mutation ====================
     const reviewMutation = useMutation({
         mutationFn: async ({ cardId, rating }: { cardId: string; rating: number }) => {
@@ -123,100 +140,119 @@ export function useStudyReview({
     });
 
     // ==================== Handle Rate ====================
-    const handleRate = (rating: number) => {
-        // ==================== Single Mode ====================
-        if (!isMultiMode) {
-            const currentCard = sessionData?.cards[currentCardIndex];
-            if (currentCard) {
-                reviewMutation.mutate({ cardId: currentCard.id, rating });
+    const handleRate = async (rating: number) => {
+        if (isProcessing) return;
+        setIsProcessing(true);
 
-                if (sessionData && currentCardIndex < sessionData.cards.length - 1) {
-                    setCurrentCardIndex(prev => prev + 1);
-                } else {
-                    setCompleted(true);
-                    if (sessionId) studyApi.completeSession(sessionId);
+        try {
+            // ==================== Single Mode ====================
+            if (!isMultiMode) {
+                const currentCard = sessionData?.cards[currentCardIndex];
+                if (currentCard) {
+                    await reviewMutation.mutateAsync({ cardId: currentCard.id, rating });
+
+                    if (sessionData && currentCardIndex < sessionData.cards.length - 1) {
+                        setCurrentCardIndex(prev => prev + 1);
+                    } else {
+                        setCompleted(true);
+                        if (sessionId) await studyApi.completeSession(sessionId);
+                    }
                 }
-            }
-            return;
-        }
-
-        // ==================== Multi Mode: Card Interleaving + Penalty Logic ====================
-        const passed = rating >= 3;
-        const currentMode = getCurrentMode();
-        if (!currentMode) return;
-
-        // Clone states for immutable update
-        const newStates = cardStates.map(c => ({
-            ...c,
-            modeAttempts: new Map(c.modeAttempts),
-            retryQueue: [...c.retryQueue],
-        }));
-
-        const cardState = newStates[currentCardIdx];
-        if (!cardState || cardState.isComplete) return;
-
-        let computedNextIdx = currentCardIdx;
-        let computedShouldAdvanceRound = false;
-
-        if (passed) {
-            // ==================== Passed: Progress Forward ====================
-
-            // Remove from retry queue if present
-            cardState.retryQueue = cardState.retryQueue.filter(m => m !== currentMode);
-
-            // Record attempt (1 = correct first try)
-            if (!cardState.modeAttempts.has(currentMode)) {
-                cardState.modeAttempts.set(currentMode, 1);
+                return;
             }
 
-            // Move to next mode or complete card
-            if (cardState.retryQueue.length === 0) {
-                if (cardState.currentModeIndex >= cardState.modeQueue.length - 1) {
-                    // All modes done, card complete
-                    cardState.isComplete = true;
-                    const finalRating = calculateFinalRating(cardState);
-                    reviewMutation.mutate({ cardId: cardState.cardId, rating: finalRating });
-                    setCompletedCount(c => c + 1);
-                } else {
-                    cardState.currentModeIndex++;
+            // ==================== Multi Mode ====================
+            const passed = rating >= 3;
+            const currentMode = getCurrentMode();
+
+            // Safety: Ensure valid state
+            if (!currentMode) {
+                console.error("handleRate: No current mode");
+                return;
+            }
+
+            // Clone states
+            const newStates = cardStates.map(c => ({
+                ...c,
+                modeAttempts: new Map(c.modeAttempts),
+                retryQueue: [...c.retryQueue],
+            }));
+
+            const cardState = newStates[currentCardIdx];
+            if (!cardState || cardState.isComplete) return;
+
+            // 1. Update Card State
+            if (passed) {
+                // Remove from retry queue logic...
+                cardState.retryQueue = cardState.retryQueue.filter(m => m !== currentMode);
+
+                if (!cardState.modeAttempts.has(currentMode)) {
+                    cardState.modeAttempts.set(currentMode, 1);
                 }
-            }
-        } else {
-            // ==================== Failed: Add to Retry Queue ====================
 
-            if (!cardState.retryQueue.includes(currentMode)) {
-                cardState.retryQueue.push(currentMode);
+                if (cardState.retryQueue.length === 0) {
+                    if (cardState.currentModeIndex >= cardState.modeQueue.length - 1) {
+                        cardState.isComplete = true;
+                        const finalRating = calculateFinalRating(cardState);
+
+                        // Skip real-time review for temp IDs in node mode (will be saved via completeNode)
+                        if (!isNodeMode || !cardState.cardId.startsWith('temp-')) {
+                            reviewMutation.mutate({ cardId: cardState.cardId, rating: finalRating });
+                        }
+                        setCompletedCount(c => c + 1);
+                    } else {
+                        cardState.currentModeIndex++;
+                    }
+                }
+            } else {
+                // FAILED: Add to retry, do NOT submit to API yet
+                if (!cardState.retryQueue.includes(currentMode)) {
+                    cardState.retryQueue.push(currentMode);
+                }
+                cardState.modeAttempts.set(
+                    currentMode,
+                    (cardState.modeAttempts.get(currentMode) || 0) + 1
+                );
             }
 
-            // Increment attempts
-            cardState.modeAttempts.set(
-                currentMode,
-                (cardState.modeAttempts.get(currentMode) || 0) + 1
+            // 2. Logic: Advance Round?
+            // "Round" logic: We want to finish all cards up to 'currentRound' index.
+            // If everyone is either Complete OR their index > currentRound, we advance.
+            const allPassedCurrentRound = newStates.every(
+                c => c.isComplete || c.currentModeIndex > currentRound
             );
-        }
 
-        // ==================== Check Round Advancement ====================
-        const allPassedCurrentRound = newStates.every(
-            c => c.isComplete || c.currentModeIndex > currentRound
-        );
-        if (allPassedCurrentRound) {
-            computedShouldAdvanceRound = true;
-        }
+            let nextRound = currentRound;
+            if (allPassedCurrentRound) {
+                nextRound = currentRound + 1;
+            }
 
-        // ==================== Find Next Card ====================
-        computedNextIdx = findNextIncompleteCard(currentCardIdx, newStates);
-        if (computedNextIdx < 0) computedNextIdx = currentCardIdx;
+            // 3. Find Next Card (Optimized for Round)
+            let computedNextIdx = findNextIncompleteCard(currentCardIdx, newStates, nextRound);
 
-        // ==================== Apply State Updates ====================
-        setCardStates(newStates);
-        if (computedShouldAdvanceRound) {
-            setCurrentRound(r => r + 1);
+            // Fallback: If current card became incomplete (retry added) and findNextIncompleteCard skipped it?
+            // `findNextIncompleteCard` scans `(idx+1)%len`.
+            // If `currentCard` is the ONLY incomplete card, scan returns `currentCardIdx`.
+            // So we are good.
+
+            // 4. Update
+            setCardStates(newStates);
+            if (nextRound > currentRound) {
+                setCurrentRound(nextRound);
+            }
+            if (computedNextIdx !== -1) {
+                setCurrentCardIdx(computedNextIdx);
+            }
+
+        } catch (err) {
+            console.error("Error in handleRate:", err);
+        } finally {
+            setIsProcessing(false);
         }
-        setCurrentCardIdx(computedNextIdx);
     };
 
     return {
         handleRate,
-        isSubmitting: reviewMutation.isPending,
+        isSubmitting: isProcessing || reviewMutation.isPending,
     };
 }

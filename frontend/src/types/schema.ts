@@ -242,3 +242,37 @@ export interface DeckStats {
     learned: number;
     new: number;
 }
+
+// ==================== NODE STUDY SESSION TYPES ====================
+
+/** Card info from node session (simplified for session use) */
+export interface NodeSessionCard {
+    id: string;
+    state: CardStateValue;
+    stability: number;
+    difficulty: number;
+    due: Date;
+}
+
+/** Single item in node study session response */
+export interface NodeSessionItem {
+    vocab: Vocabulary;
+    card: NodeSessionCard | null; // null if vocabulary is new (no card yet)
+    modeQueue: StudyModeType[];
+    originalState: CardStateValue; // 0 (New) if card is null
+}
+
+/** Response from GET /path/node/:nodeId/session */
+export interface NodeSessionResponse {
+    nodeId: number;
+    deckId: string; // For navigation back to learning path
+    items: NodeSessionItem[];
+    stats: {
+        total: number;
+        new: number;
+        learning: number;
+        review: number;
+        relearning: number;
+    };
+}
+

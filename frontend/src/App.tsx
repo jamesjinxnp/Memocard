@@ -8,6 +8,8 @@ import BrowseVocabulary from './pages/BrowseVocabulary';
 import DeckPage from './pages/DeckPage';
 import Settings from './pages/Settings';
 import AnalyticsPage from './pages/AnalyticsPage';
+import LearningPath from './pages/LearningPath';
+import ReviewSession from './pages/ReviewSession';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -74,6 +76,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <AnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/path/:deckId"
+            element={
+              <ProtectedRoute>
+                <LearningPath />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/study/node/:nodeId"
+            element={
+              <ProtectedRoute>
+                <Study />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/review/:deckId"
+            element={
+              <ProtectedRoute>
+                <ReviewSession />
               </ProtectedRoute>
             }
           />

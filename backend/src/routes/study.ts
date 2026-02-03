@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { nanoid } from '../utils/nanoid';
 import { db } from '../db/client';
-import { cards, vocabulary, reviewLogs, studySessions } from '../db/schema';
+import { cards, vocabulary, reviewLogs, studySessions, userStats } from '../db/schema';
 import { eq, and, lte, asc, sql, like, gte } from 'drizzle-orm';
 import { getUserFromHeader } from '../middleware/auth';
 import {
@@ -245,6 +245,7 @@ const study = new Elysia({ prefix: '/study' })
                 ? sql`${vocabulary.id} NOT IN (${sql.join(existingIds, sql`, `)})`
                 : sql`1=1`
             )
+            .orderBy(asc(vocabulary.id)) // Sort by frequency rank (vocabulary.id = Oxford rank)
             .limit(limit);
 
         return {
@@ -350,6 +351,7 @@ const study = new Elysia({ prefix: '/study' })
             .select()
             .from(vocabulary)
             .where(like(vocabulary.tag, `%${deck}%`))
+            .orderBy(asc(vocabulary.id)) // Sort by frequency rank (vocabulary.id = Oxford rank)
             .limit(toAdd + existingIds.size); // Fetch extra to account for filtering
 
         // Filter out vocabulary user already has
@@ -392,79 +394,105 @@ const study = new Elysia({ prefix: '/study' })
     })
 
     // ==================== SUBMIT REVIEW ====================
+    // ==================== SUBMIT REVIEW (Single or Batch) ====================
     .post('/review', async ({ user, set, body }) => {
         if (!user) {
             set.status = 401;
             return { error: 'Unauthorized' };
         }
 
-        const { cardId, rating, studyMode, responseTime } = body;
         const now = new Date();
+        console.log('📥 [Review Payload]:', JSON.stringify(body, null, 2));
 
-        // Get current card
-        const card = await db.query.cards.findFirst({
-            where: and(
-                eq(cards.id, cardId),
-                eq(cards.userId, user.userId)
-            ),
-        });
+        let reviews: any[] = [];
 
-        if (!card) {
-            set.status = 404;
-            return { error: 'Card not found' };
+        // Robust normalization
+        if (Array.isArray(body)) {
+            reviews = body;
+        } else if (body && typeof body === 'object') {
+            // Check for wrapped arrays
+            if ('reviews' in body && Array.isArray((body as any).reviews)) {
+                reviews = (body as any).reviews;
+            } else if ('results' in body && Array.isArray((body as any).results)) {
+                reviews = (body as any).results;
+            } else {
+                // Assume single review object
+                reviews = [body];
+            }
         }
 
-        // Convert to FSRS card and schedule
-        const fsrsCard = dbCardToFSRS(card);
-        const fsrsRating = toRating(rating);
-        const result = scheduleReview(fsrsCard, fsrsRating, now);
+        if (reviews.length === 0) {
+            console.warn('⚠️ [Review] No reviews found in payload');
+            return { message: 'No reviews to process', count: 0 };
+        }
 
-        // Update card in database
-        const updatedCard = fsrsCardToDb(result.card);
-        await db
-            .update(cards)
-            .set(updatedCard)
-            .where(eq(cards.id, cardId));
+        const results = await db.transaction(async (tx) => {
+            const processed = [];
 
-        // Create review log
-        await db.insert(reviewLogs).values({
-            id: nanoid(),
-            cardId,
-            userId: user.userId,
-            rating,
-            state: card.state,
-            studyMode,
-            responseTime,
-            stability: result.log.stability,
-            difficulty: result.log.difficulty,
-            elapsedDays: result.log.elapsed_days,
-            scheduledDays: result.log.scheduled_days,
-            reviewedAt: now,
+            for (const review of reviews) {
+                const { cardId, rating, studyMode, responseTime } = review;
+
+                // Get current card
+                const card = await tx.query.cards.findFirst({
+                    where: and(
+                        eq(cards.id, cardId),
+                        eq(cards.userId, user.userId)
+                    ),
+                });
+
+                if (!card) {
+                    // Skip not found cards in batch, or error? 
+                    // For batch, skipping is safer to avoid full failure.
+                    continue;
+                }
+
+                // Convert to FSRS card and schedule
+                const fsrsCard = dbCardToFSRS(card);
+                const fsrsRating = toRating(rating);
+                const result = scheduleReview(fsrsCard, fsrsRating, now);
+
+                // Update card in database
+                const updatedCard = fsrsCardToDb(result.card);
+                await tx
+                    .update(cards)
+                    .set(updatedCard)
+                    .where(eq(cards.id, cardId));
+
+                // Create review log
+                await tx.insert(reviewLogs).values({
+                    id: nanoid(),
+                    cardId,
+                    userId: user.userId,
+                    rating,
+                    state: card.state,
+                    studyMode,
+                    responseTime,
+                    stability: result.log.stability,
+                    difficulty: result.log.difficulty,
+                    elapsedDays: result.log.elapsed_days,
+                    scheduledDays: result.log.scheduled_days,
+                    reviewedAt: now,
+                });
+
+                processed.push({
+                    cardId,
+                    nextReview: result.card.due,
+                    interval: result.card.scheduled_days,
+                    newState: result.card.state,
+                });
+            }
+            return processed;
         });
 
         return {
-            message: 'Review submitted',
-            nextReview: result.card.due,
-            interval: result.card.scheduled_days,
-            newState: result.card.state,
+            message: 'Reviews submitted',
+            count: results.length,
+            results: results,
+            // Backwards compatibility for single review response (first item)
+            ...(results.length === 1 ? results[0] : {}),
         };
     }, {
-        body: t.Object({
-            cardId: t.String(),
-            rating: t.Number({ minimum: 1, maximum: 4 }),
-            studyMode: t.Union([
-                t.Literal('reading'),
-                t.Literal('typing'),
-                t.Literal('listening'),
-                t.Literal('multiple_choice'),
-                t.Literal('cloze'),
-                t.Literal('spelling_bee'),
-                t.Literal('spelling'),
-                t.Literal('audio_choice'),
-                t.Literal('multi'),
-            ]),
-            responseTime: t.Optional(t.Number()),
-        })
+        body: t.Any(), // Relaxed validation to handle various payload shapes (Array, {reviews:[]}, {results:[]}, Single Object)
     })
 
     // ==================== START STUDY SESSION ====================
@@ -705,8 +733,11 @@ const study = new Elysia({ prefix: '/study' })
         });
 
         // Build daily stats array
+        // Note: SQLite date(timestamp, 'unixepoch') returns UTC date, 
+        // so we need to generate UTC dates here too for matching
         for (let i = days - 1; i >= 0; i--) {
-            const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+            // Create date at UTC midnight to match SQLite's date() function output
+            const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
             const dateStr = dayStart.toISOString().split('T')[0];
 
             const dayData = reviewsMap.get(dateStr) || { count: 0, correct: 0 };
@@ -723,16 +754,11 @@ const study = new Elysia({ prefix: '/study' })
             });
         }
 
-        // Calculate streak (consecutive days with reviews, checking from today backwards)
-        let streak = 0;
-        for (let i = dailyStats.length - 1; i >= 0; i--) {
-            if (dailyStats[i].reviews > 0) {
-                streak++;
-            } else if (i < dailyStats.length - 1) {
-                // Allow today to have 0 reviews (user might not have studied yet today)
-                break;
-            }
-        }
+        // Get streak from user_stats table (written by gamification service)
+        const userStatsData = await db.query.userStats.findFirst({
+            where: eq(userStats.userId, user.userId),
+        });
+        const streak = userStatsData?.currentStreak || 0;
 
         // Overall accuracy (last 7 days for display)
         const last7Days = dailyStats.slice(-7);

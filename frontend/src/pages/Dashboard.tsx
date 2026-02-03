@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore, useStudyStore } from '@/stores';
 import { studyApi, vocabularyApi } from '@/services/api';
 import { Button } from '@/components/ui/button';
-import { LogOut, Settings, Library, ChevronRight, BarChart3 } from 'lucide-react';
+import { LogOut, Settings, Library, BarChart3 } from 'lucide-react';
 import ProgressCharts from '@/components/ProgressCharts';
 import { SkeletonDeck } from '@/components/ui/skeleton';
 
@@ -106,25 +106,42 @@ export default function Dashboard() {
               const colorClass = deckColors[deck.color] || 'from-slate-500 to-slate-600';
 
               return (
-                <button
+                <div
                   key={deck.id}
-                  onClick={() => navigate(`/deck/${deck.id}`)}
-                  className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/50 p-5 text-left transition-all hover:border-primary/50 hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/10 group active:scale-[0.98]"
+                  className="relative overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/50 p-5 flex flex-col justify-between hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 transition-all group"
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${colorClass} opacity-5 group-hover:opacity-10 transition-opacity`} />
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-3">
+                  <div className={`absolute inset-0 bg-gradient-to-br ${colorClass} opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none`} />
+
+                  {/* Content */}
+                  <div className="relative z-10 space-y-4">
+                    <div className="flex items-start justify-between">
                       <div>
                         <h3 className="font-semibold text-lg text-slate-100">{deck.name}</h3>
-                        <p className="text-sm text-slate-400 mt-1">{deck.description}</p>
+                        <p className="text-sm text-slate-400 mt-1 line-clamp-2">{deck.description}</p>
                       </div>
-                      <ChevronRight className="size-5 text-slate-400 group-hover:text-primary transition-colors" />
+                      <div className={`inline-block px-2 py-0.5 rounded-full bg-gradient-to-r ${colorClass} text-white text-xs font-medium opacity-80`}>
+                        {deck.wordCount.toLocaleString()}
+                      </div>
                     </div>
-                    <div className={`inline-block px-3 py-1 rounded-full bg-gradient-to-r ${colorClass} text-white text-sm font-medium`}>
-                      {deck.wordCount.toLocaleString()} words
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        onClick={() => navigate(`/path/${deck.id}`)}
+                        className={`flex-1 bg-gradient-to-r ${colorClass} text-white shadow-lg hover:opacity-90 border-0 active:scale-95 transition-transform duration-100`}
+                      >
+                        Start Path 🚀
+                      </Button>
+                      <Button
+                        onClick={() => navigate(`/deck/${deck.id}`)}
+                        variant="secondary"
+                        className="flex-1 bg-slate-700/50 hover:bg-slate-700 text-slate-200 active:scale-95 transition-transform duration-100"
+                      >
+                        Library 📖
+                      </Button>
                     </div>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

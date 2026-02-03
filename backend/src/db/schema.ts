@@ -136,6 +136,142 @@ export const studySessionsRelations = relations(studySessions, ({ one }) => ({
     }),
 }));
 
+// ==================== LEARNING PATH: LEVELS ====================
+export const levels = sqliteTable('levels', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    deckId: text('deck_id').notNull(), // 'oxford3000', 'Toeic', etc.
+    name: text('name').notNull(), // 'Level A1', 'Beginner'
+    description: text('description'),
+    order: integer('order').notNull().default(0),
+    theme: text('theme'), // 'Food', 'Travel', 'Business'
+    requiredCrowns: integer('required_crowns').notNull().default(0), // Crowns needed to unlock
+    createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => [
+    index('idx_levels_deck_order').on(table.deckId, table.order),
+]);
+
+// Levels relations
+export const levelsRelations = relations(levels, ({ many }) => ({
+    units: many(units),
+}));
+
+// ==================== LEARNING PATH: UNITS ====================
+export const units = sqliteTable('units', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    levelId: integer('level_id').notNull().references(() => levels.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(), // 'Unit 1: Food'
+    description: text('description'),
+    order: integer('order').notNull().default(0),
+    icon: text('icon'), // Emoji or icon name
+    color: text('color'), // Hex or Tailwind color
+    createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => [
+    index('idx_units_level_order').on(table.levelId, table.order),
+]);
+
+// Units relations
+export const unitsRelations = relations(units, ({ one, many }) => ({
+    level: one(levels, {
+        fields: [units.levelId],
+        references: [levels.id],
+    }),
+    nodes: many(nodes),
+}));
+
+// ==================== LEARNING PATH: NODES ====================
+export const nodes = sqliteTable('nodes', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    unitId: integer('unit_id').notNull().references(() => units.id, { onDelete: 'cascade' }),
+    type: text('type').notNull().default('lesson'), // 'lesson', 'practice', 'boss', 'checkpoint'
+    order: integer('order').notNull().default(0),
+    requiredStars: integer('required_stars').notNull().default(0), // Stars from previous nodes to unlock (0 = sequential)
+    createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+}, (table) => [
+    index('idx_nodes_unit_order').on(table.unitId, table.order),
+]);
+
+// Nodes relations
+export const nodesRelations = relations(nodes, ({ one, many }) => ({
+    unit: one(units, {
+        fields: [nodes.unitId],
+        references: [units.id],
+    }),
+    nodeVocabulary: many(nodeVocabulary),
+    userProgress: many(userProgress),
+}));
+
+// ==================== LEARNING PATH: NODE_VOCABULARY (Junction) ====================
+export const nodeVocabulary = sqliteTable('node_vocabulary', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    nodeId: integer('node_id').notNull().references(() => nodes.id, { onDelete: 'cascade' }),
+    vocabularyId: integer('vocabulary_id').notNull().references(() => vocabulary.id, { onDelete: 'cascade' }),
+    order: integer('order').notNull().default(0), // Order within node
+}, (table) => [
+    index('idx_node_vocab_node').on(table.nodeId),
+    index('idx_node_vocab_vocabulary').on(table.vocabularyId),
+]);
+
+// NodeVocabulary relations
+export const nodeVocabularyRelations = relations(nodeVocabulary, ({ one }) => ({
+    node: one(nodes, {
+        fields: [nodeVocabulary.nodeId],
+        references: [nodes.id],
+    }),
+    vocabulary: one(vocabulary, {
+        fields: [nodeVocabulary.vocabularyId],
+        references: [vocabulary.id],
+    }),
+}));
+
+// ==================== LEARNING PATH: USER_PROGRESS ====================
+export const userProgress = sqliteTable('user_progress', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    nodeId: integer('node_id').notNull().references(() => nodes.id, { onDelete: 'cascade' }),
+    status: integer('status').notNull().default(0), // 0=locked, 1=available, 2=completed
+    stars: integer('stars').notNull().default(0), // 0-3 stars based on performance
+    crowns: integer('crowns').notNull().default(0), // 0-5 crowns (replay value)
+    attempts: integer('attempts').notNull().default(0),
+    bestScore: integer('best_score').notNull().default(0), // Percentage 0-100
+    completedAt: integer('completed_at', { mode: 'timestamp' }),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }),
+}, (table) => [
+    index('idx_user_progress_user_node').on(table.userId, table.nodeId),
+    index('idx_user_progress_user_status').on(table.userId, table.status),
+]);
+
+// UserProgress relations
+export const userProgressRelations = relations(userProgress, ({ one }) => ({
+    user: one(users, {
+        fields: [userProgress.userId],
+        references: [users.id],
+    }),
+    node: one(nodes, {
+        fields: [userProgress.nodeId],
+        references: [nodes.id],
+    }),
+}));
+
+// ==================== USER STATS (Gamification) ====================
+export const userStats = sqliteTable('user_stats', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+    totalXp: integer('total_xp').notNull().default(0),
+    totalCrowns: integer('total_crowns').notNull().default(0),
+    currentStreak: integer('current_streak').notNull().default(0),
+    longestStreak: integer('longest_streak').notNull().default(0),
+    lastStudyDate: integer('last_study_date', { mode: 'timestamp' }),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }),
+});
+
+// UserStats relations
+export const userStatsRelations = relations(userStats, ({ one }) => ({
+    user: one(users, {
+        fields: [userStats.userId],
+        references: [users.id],
+    }),
+}));
+
 // Type exports
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -144,3 +280,15 @@ export type Card = typeof cards.$inferSelect;
 export type NewCard = typeof cards.$inferInsert;
 export type ReviewLog = typeof reviewLogs.$inferSelect;
 export type StudySession = typeof studySessions.$inferSelect;
+
+// Learning Path types
+export type Level = typeof levels.$inferSelect;
+export type NewLevel = typeof levels.$inferInsert;
+export type Unit = typeof units.$inferSelect;
+export type NewUnit = typeof units.$inferInsert;
+export type Node = typeof nodes.$inferSelect;
+export type NewNode = typeof nodes.$inferInsert;
+export type NodeVocabulary = typeof nodeVocabulary.$inferSelect;
+export type UserProgress = typeof userProgress.$inferSelect;
+export type NewUserProgress = typeof userProgress.$inferInsert;
+export type UserStats = typeof userStats.$inferSelect;

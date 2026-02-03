@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import studyRoutes from './routes/study';
 import vocabularyRoutes from './routes/vocabulary';
 import userRoutes from './routes/user';
+import learningPathRoutes from './routes/learning-path';
 
 // Create Elysia app
 const app = new Elysia()
@@ -32,6 +33,7 @@ const app = new Elysia()
             auth: '/auth',
             study: '/study',
             vocabulary: '/vocabulary',
+            learningPath: '/path',
             health: '/health',
         },
     }))
@@ -41,6 +43,7 @@ const app = new Elysia()
     .use(studyRoutes)
     .use(vocabularyRoutes)
     .use(userRoutes)
+    .use(learningPathRoutes)
 
     // ==================== ERROR HANDLER ====================
     .onError(({ error }) => {

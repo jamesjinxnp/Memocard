@@ -124,4 +124,55 @@ export const userApi = {
         api.delete('/user', { data }),
 };
 
+// ==================== LEARNING PATH API ====================
+export const learningPathApi = {
+    // Get full path structure
+    getPath: (deckId: string) =>
+        api.get(`/path/${deckId}`),
+
+    // Get user progress for a deck
+    getProgress: (deckId: string) =>
+        api.get(`/path/${deckId}/progress`),
+
+    // Get due cards for FSRS button
+    getDueCards: (deckId: string) =>
+        api.get(`/path/${deckId}/due`),
+
+    // Get node vocabulary
+    getNode: (nodeId: number) =>
+        api.get(`/path/node/${nodeId}`),
+
+    // Complete node
+    completeNode: (nodeId: number, data: {
+        cardsReviewed: number;
+        correctCount: number;
+        responseTime: number;
+        results?: Array<{
+            vocabId: number;
+            cardId?: string;
+            rating: number;
+            fsrs?: {
+                state: number;
+                stability: number;
+                difficulty: number;
+                elapsedDays: number;
+                scheduledDays: number;
+                reps: number;
+                lapses: number;
+                lastReview: Date;
+                nextReview: Date;
+            };
+        }>;
+    }) =>
+        api.post(`/path/node/${nodeId}/complete`, data),
+
+    // Get node study session with interleaving queue
+    getNodeSession: (nodeId: number) =>
+        api.get(`/path/node/${nodeId}/session`),
+
+    // Get user gamification stats
+    getStats: () =>
+        api.get('/path/stats'),
+};
+
 export default api;

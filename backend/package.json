@@ -8,6 +8,7 @@
     "db:push": "bunx drizzle-kit push",
     "db:studio": "bunx drizzle-kit studio",
     "db:seed": "bun run src/db/seed.ts",
+    "seed:path": "bun run src/scripts/seed-learning-path.ts",
     "test": "bun test"
   },
   "dependencies": {
