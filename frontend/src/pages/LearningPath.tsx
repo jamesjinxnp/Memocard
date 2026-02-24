@@ -1,5 +1,5 @@
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import { learningPathApi } from "../services/api";
@@ -7,9 +7,8 @@ import { UnitHeader } from "../components/learning-path/UnitHeader";
 import { PathHeader } from "../components/learning-path/PathHeader";
 import { NodeButton } from "../components/learning-path/NodeButton";
 import { ReviewBar } from "../components/learning-path/ReviewBar";
-import { getSnakePosition } from "../utils/path-layout";
+import { getDuolingoPosition, getPathHeight, getSmoothPath } from "../utils/path-layout";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle } from "lucide-react";
 
 
@@ -121,7 +120,31 @@ export default function LearningPath() {
         return progressData?.nodeProgress || {};
     }, [progressData?.nodeProgress]);
 
-    const COLUMNS = 4; // Grid columns for snake layout
+    // Sticky UnitHeader: track which unit is in view
+    const unitRefs = useRef<HTMLDivElement[]>([]);
+    const [activeUnitIndex, setActiveUnitIndex] = useState(0);
+
+    // IntersectionObserver to track which unit is visible
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        const idx = Number((entry.target as HTMLElement).dataset.unitIndex);
+                        if (!isNaN(idx)) setActiveUnitIndex(idx);
+                    }
+                }
+            },
+            { threshold: 0.15, rootMargin: '-120px 0px 0px 0px' }
+        );
+
+        const currentRefs = unitRefs.current;
+        currentRefs.forEach(el => { if (el) observer.observe(el); });
+
+        return () => {
+            currentRefs.forEach(el => { if (el) observer.unobserve(el); });
+        };
+    }, [pathData, activeLevelId]);
 
     // === Conditional Returns (AFTER all hooks) ===
     if (!deckId) return <div>Invalid Deck ID</div>;
@@ -158,126 +181,209 @@ export default function LearningPath() {
 
     // === Final Render ===
     return (
-        <div className="min-h-screen bg-background flex flex-col">
+        <div className="min-h-screen bg-deep flex flex-col relative">
+            {/* Ambient Background Orbs — own overflow-hidden wrapper */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="ambient-orb ambient-orb-primary w-[600px] h-[600px] -top-60 -right-60 absolute" />
+                <div className="ambient-orb ambient-orb-teal w-[500px] h-[500px] top-1/3 -left-60 absolute" />
+                <div className="ambient-orb ambient-orb-secondary w-[400px] h-[400px] -bottom-40 -right-40 absolute" />
+            </div>
+
             <PathHeader title={pathData.deckId.replace('-', ' ')} deckId={deckId || ''} />
 
-            <div className="flex-1 relative">
-                <ScrollArea className="h-full absolute inset-0">
-                    <div className="container mx-auto max-w-2xl p-4 space-y-12 pb-32">
+            <div className="flex-1 relative z-10">
+                <div className="container mx-auto max-w-2xl p-4 space-y-12 pb-32">
 
-                        {/* Header Info */}
-                        <div className="text-center space-y-2 py-4">
-                            <h1 className="text-2xl font-bold tracking-tight capitalize">
-                                {pathData.deckId.replace('-', ' ')} Journey
-                            </h1>
-                            <p className="text-sm text-muted-foreground">
-                                {pathData.stats.totalLevels} Levels • {pathData.stats.totalUnits} Units
-                            </p>
+                    {/* Deck Title */}
+                    <div className="text-center space-y-3 py-8">
+                        <h1 className="text-4xl font-bold font-display tracking-tight capitalize text-gradient">
+                            {pathData.deckId.replace('-', ' ')}
+                        </h1>
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-sm text-[var(--color-text-secondary)]">
+                            <span className="text-primary font-bold">{pathData.stats.totalNodes}</span>
+                            <span>vocabulary words</span>
                         </div>
-
-                        {/* 🎯 Level Tab Bar - Sticky & Scrollable */}
-                        <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b -mx-4 px-4">
-                            <div className="flex gap-1 overflow-x-auto py-2 scrollbar-hide">
-                                {pathData.levels.map((level) => {
-                                    const isActive = activeLevelId === level.id ||
-                                        (activeLevelId === null && level.order === 0);
-                                    return (
-                                        <button
-                                            key={level.id}
-                                            onClick={() => setActiveLevelId(level.id)}
-                                            className={`
-                                                flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold 
-                                                transition-all duration-200 whitespace-nowrap
-                                                ${isActive
-                                                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 scale-105'
-                                                    : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:scale-102'
-                                                }
-                                            `}
-                                        >
-                                            {level.name}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* 🎯 Render ONLY Active Level */}
-                        {(() => {
-                            const displayedLevel = pathData.levels.find(l =>
-                                activeLevelId === null ? l.order === 0 : l.id === activeLevelId
-                            );
-                            if (!displayedLevel) return null;
-
-                            return (
-                                <div key={displayedLevel.id} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                    {/* Level Title */}
-                                    <div className="text-center py-2">
-                                        <h2 className="text-xl font-bold text-primary">{displayedLevel.name}</h2>
-                                        {displayedLevel.description && (
-                                            <p className="text-sm text-muted-foreground mt-1">{displayedLevel.description}</p>
-                                        )}
-                                    </div>
-
-                                    {/* Units Loop */}
-                                    {displayedLevel.units.map((unit) => {
-                                        // Calculate unit locked status based on first node
-                                        // Calculate unit locked status based on first node
-                                        const firstNodeId = unit.nodes[0]?.id;
-                                        const isUnitLocked = !!(firstNodeId && progressData?.nodeProgress[firstNodeId]?.status === 'locked');
-
-                                        // Calculate unit progress
-                                        const unitCompletedNodes = unit.nodes.filter(n =>
-                                            progressData?.nodeProgress[n.id]?.status === 'completed'
-                                        ).length;
-
-                                        return (
-                                            <div key={unit.id} className="relative">
-                                                <UnitHeader
-                                                    unit={unit}
-                                                    progress={{
-                                                        completedNodes: unitCompletedNodes,
-                                                        totalNodes: unit.nodes.length
-                                                    }}
-                                                    isLocked={isUnitLocked}
-                                                />
-
-                                                {/* Snake Grid */}
-                                                <div className="grid grid-cols-4 gap-y-8 gap-x-2 py-4 relative min-h-[200px]">
-                                                    {unit.nodes.map((node, index) => {
-                                                        const pos = getSnakePosition(index, COLUMNS);
-                                                        const progress = progressLookup[node.id] || { status: 'locked' as const, stars: 0, crowns: 0 };
-
-                                                        // Calculate grid placement (1-based)
-                                                        const colStart = pos.col + 1;
-
-                                                        return (
-                                                            <div
-                                                                key={node.id}
-                                                                className="flex justify-center relative items-center"
-                                                                style={{
-                                                                    gridColumnStart: colStart,
-                                                                    gridRowStart: pos.row + 1,
-                                                                }}
-                                                            >
-                                                                <NodeButton
-                                                                    node={node}
-                                                                    status={progress.status}
-                                                                    stars={progress.stars}
-                                                                    crowns={progress.crowns}
-                                                                    onClick={() => handleNodeClick(node.id, progress.status)}
-                                                                />
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            );
-                        })()}
                     </div>
-                </ScrollArea>
+
+                    {/* Level Tab Bar */}
+                    <div className="-mx-4 px-4 py-2">
+                        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                            {pathData.levels.map((level) => {
+                                const isActive = activeLevelId === level.id ||
+                                    (activeLevelId === null && level.order === 0);
+                                return (
+                                    <button
+                                        key={level.id}
+                                        onClick={() => setActiveLevelId(level.id)}
+                                        className={`
+                                                flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-bold font-display
+                                                transition-all duration-300 whitespace-nowrap
+                                                ${isActive
+                                                ? 'gradient-primary text-white shadow-lg shadow-primary/30 scale-105'
+                                                : 'bg-[var(--color-bg-elevated)]/60 text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-text-primary)] hover:scale-102'
+                                            }
+                                            `}
+                                    >
+                                        {level.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* 🎯 Render ONLY Active Level */}
+                    {(() => {
+                        const displayedLevel = pathData.levels.find(l =>
+                            activeLevelId === null ? l.order === 0 : l.id === activeLevelId
+                        );
+                        if (!displayedLevel) return null;
+
+                        return (
+                            <div key={displayedLevel.id} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                {/* Level Title */}
+                                <div className="text-center py-4">
+                                    <h2 className="text-xl font-bold font-display text-gradient">{displayedLevel.name}</h2>
+                                    {displayedLevel.description && (
+                                        <p className="text-sm text-[var(--color-text-muted)] mt-1">{displayedLevel.description}</p>
+                                    )}
+                                </div>
+
+                                {/* Sticky Floating Unit Header */}
+                                {(() => {
+                                    const unit = displayedLevel.units[activeUnitIndex];
+                                    if (!unit) return null;
+                                    const firstNodeId = unit.nodes[0]?.id;
+                                    const isUnitLocked = !!(firstNodeId && progressData?.nodeProgress[firstNodeId]?.status === 'locked');
+                                    const unitCompletedNodes = unit.nodes.filter(n =>
+                                        progressData?.nodeProgress[n.id]?.status === 'completed'
+                                    ).length;
+                                    return (
+                                        <div className="sticky top-[56px] z-30">
+                                            <UnitHeader
+                                                unit={unit}
+                                                progress={{
+                                                    completedNodes: unitCompletedNodes,
+                                                    totalNodes: unit.nodes.length
+                                                }}
+                                                isLocked={isUnitLocked}
+                                            />
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Continuous S-Curve Path — all units on one flowing curve */}
+                                {(() => {
+                                    // Flatten all nodes across units with global index
+                                    const allNodes: Array<{
+                                        node: typeof displayedLevel.units[0]['nodes'][0];
+                                        unitIndex: number;
+                                        globalIndex: number;
+                                    }> = [];
+                                    let globalIdx = 0;
+                                    displayedLevel.units.forEach((unit, unitIndex) => {
+                                        unit.nodes.forEach((node) => {
+                                            allNodes.push({ node, unitIndex, globalIndex: globalIdx++ });
+                                        });
+                                    });
+
+                                    const totalNodes = allNodes.length;
+                                    const containerHeight = getPathHeight(totalNodes);
+                                    const allPositions = allNodes.map(n =>
+                                        getDuolingoPosition(n.globalIndex, totalNodes)
+                                    );
+
+                                    return (
+                                        <div
+                                            className="relative w-full"
+                                            style={{ height: `${containerHeight}px` }}
+                                        >
+                                            {/* Single SVG S-Curve through ALL nodes */}
+                                            <svg
+                                                className="absolute inset-0 w-full h-full pointer-events-none"
+                                                viewBox={`0 0 100 ${containerHeight}`}
+                                                preserveAspectRatio="none"
+                                            >
+                                                {/* Background trail */}
+                                                <path
+                                                    d={getSmoothPath(allPositions)}
+                                                    fill="none"
+                                                    stroke="rgba(42, 38, 71, 0.4)"
+                                                    strokeWidth="0.6"
+                                                    strokeLinecap="round"
+                                                />
+                                                {/* Progress colored segments */}
+                                                {allNodes.slice(0, -1).map((item, index) => {
+                                                    const currentProgress = progressLookup[item.node.id] || { status: 'locked' as const, stars: 0, crowns: 0 };
+                                                    const nextProgress = progressLookup[allNodes[index + 1]?.node.id] || { status: 'locked' as const, stars: 0, crowns: 0 };
+
+                                                    if (currentProgress.status === 'locked') return null;
+
+                                                    const strokeColor =
+                                                        currentProgress.status === 'completed' && nextProgress.status === 'completed'
+                                                            ? 'rgba(6, 214, 160, 0.6)'
+                                                            : currentProgress.status === 'completed' && nextProgress.status === 'available'
+                                                                ? 'rgba(124, 92, 252, 0.6)'
+                                                                : 'transparent';
+
+                                                    return (
+                                                        <path
+                                                            key={`progress-${index}`}
+                                                            d={getSmoothPath([allPositions[index], allPositions[index + 1]])}
+                                                            fill="none"
+                                                            stroke={strokeColor}
+                                                            strokeWidth="0.8"
+                                                            strokeLinecap="round"
+                                                        />
+                                                    );
+                                                })}
+                                            </svg>
+
+                                            {/* Node Buttons + Unit boundary markers */}
+                                            {allNodes.map((item, index) => {
+                                                const pos = allPositions[index];
+                                                const progress = progressLookup[item.node.id] || { status: 'locked' as const, stars: 0, crowns: 0 };
+
+                                                // Is this the first node of a new unit? Insert sentinel for IntersectionObserver
+                                                const isUnitStart = index === 0 || item.unitIndex !== allNodes[index - 1].unitIndex;
+
+                                                return (
+                                                    <div key={item.node.id}>
+                                                        {isUnitStart && (
+                                                            <div
+                                                                className="absolute w-full"
+                                                                data-unit-index={item.unitIndex}
+                                                                ref={(el) => {
+                                                                    if (el) unitRefs.current[item.unitIndex] = el;
+                                                                }}
+                                                                style={{ top: `${pos.y}px`, height: '1px' }}
+                                                            />
+                                                        )}
+                                                        <div
+                                                            className="absolute flex justify-center"
+                                                            style={{
+                                                                left: `${pos.x}%`,
+                                                                top: `${pos.y}px`,
+                                                                transform: 'translateX(-50%)',
+                                                            }}
+                                                        >
+                                                            <NodeButton
+                                                                node={item.node}
+                                                                status={progress.status}
+                                                                stars={progress.stars}
+                                                                crowns={progress.crowns}
+                                                                onClick={() => handleNodeClick(item.node.id, progress.status)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        );
+                    })()}
+                </div>
             </div>
 
             <ReviewBar

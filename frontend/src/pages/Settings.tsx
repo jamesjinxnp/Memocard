@@ -160,14 +160,14 @@ export default function Settings() {
     ];
 
     return (
-        <div className="min-h-screen min-h-dvh w-full bg-slate-900">
+        <div className="min-h-screen min-h-dvh w-full bg-deep">
             {/* Header */}
-            <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/95 backdrop-blur supports-[backdrop-filter]:bg-slate-900/75">
+            <header className="sticky top-0 z-50 w-full border-b border-[var(--color-border-default)] bg-[var(--color-bg-deep)]/95 backdrop-blur">
                 <div className="max-w-2xl mx-auto flex h-16 items-center gap-4 px-4 md:px-6">
                     <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
                         <ArrowLeft className="size-5" />
                     </Button>
-                    <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                    <h1 className="text-xl font-bold font-display text-gradient">
                         Settings
                     </h1>
                 </div>
@@ -197,52 +197,52 @@ export default function Settings() {
                         {/* Profile Button */}
                         <button
                             onClick={() => setShowProfileModal(true)}
-                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-800/50 transition-colors border-b border-slate-700/50"
+                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-primary/5 transition-colors border-b border-[var(--color-border-default)]"
                         >
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                                     <User className="size-5 text-white" />
                                 </div>
                                 <div className="text-left">
-                                    <div className="font-medium text-slate-100">Profile</div>
-                                    <div className="text-sm text-slate-400">{user?.name || 'No name set'}</div>
+                                    <div className="font-medium text-[var(--color-text-primary)]">Profile</div>
+                                    <div className="text-sm text-[var(--color-text-secondary)]">{user?.name || 'No name set'}</div>
                                 </div>
                             </div>
-                            <ChevronRight className="size-5 text-slate-500" />
+                            <ChevronRight className="size-5 text-[var(--color-text-muted)]" />
                         </button>
 
                         {/* Email Button */}
                         <button
                             onClick={() => setShowEmailModal(true)}
-                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-800/50 transition-colors border-b border-slate-700/50"
+                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-primary/5 transition-colors border-b border-[var(--color-border-default)]"
                         >
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
                                     <Mail className="size-5 text-blue-400" />
                                 </div>
                                 <div className="text-left">
-                                    <div className="font-medium text-slate-100">Email</div>
-                                    <div className="text-sm text-slate-400">{user?.email}</div>
+                                    <div className="font-medium text-[var(--color-text-primary)]">Email</div>
+                                    <div className="text-sm text-[var(--color-text-secondary)]">{user?.email}</div>
                                 </div>
                             </div>
-                            <ChevronRight className="size-5 text-slate-500" />
+                            <ChevronRight className="size-5 text-[var(--color-text-muted)]" />
                         </button>
 
                         {/* Password Button */}
                         <button
                             onClick={() => setShowPasswordModal(true)}
-                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-800/50 transition-colors"
+                            className="w-full flex items-center justify-between px-6 py-4 hover:bg-primary/5 transition-colors"
                         >
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
                                     <Lock className="size-5 text-amber-400" />
                                 </div>
                                 <div className="text-left">
-                                    <div className="font-medium text-slate-100">Password</div>
-                                    <div className="text-sm text-slate-400">••••••••</div>
+                                    <div className="font-medium text-[var(--color-text-primary)]">Password</div>
+                                    <div className="text-sm text-[var(--color-text-secondary)]">••••••••</div>
                                 </div>
                             </div>
-                            <ChevronRight className="size-5 text-slate-500" />
+                            <ChevronRight className="size-5 text-[var(--color-text-muted)]" />
                         </button>
                     </CardContent>
                 </Card>
@@ -266,7 +266,7 @@ export default function Settings() {
                                         onClick={() => setTheme(option.value)}
                                         className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${isActive
                                             ? 'border-primary bg-primary/10 text-primary'
-                                            : 'border-slate-700 hover:border-slate-600 text-slate-400 hover:text-slate-200'
+                                            : 'border-[var(--color-border-default)] hover:border-primary/30 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                                             }`}
                                     >
                                         <Icon className="size-6" />
@@ -287,13 +287,13 @@ export default function Settings() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {/* Reset Learning */}
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/50 border border-slate-700">
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border-default)]">
                             <div>
-                                <div className="font-medium text-slate-200 flex items-center gap-2">
+                                <div className="font-medium text-[var(--color-text-primary)] flex items-center gap-2">
                                     <RotateCcw className="size-4" />
                                     Reset Learning Progress
                                 </div>
-                                <p className="text-sm text-slate-400 mt-1">
+                                <p className="text-sm text-[var(--color-text-secondary)] mt-1">
                                     Remove all your cards and review history.
                                 </p>
                             </div>
@@ -307,13 +307,13 @@ export default function Settings() {
                         </div>
 
                         {/* Delete Account */}
-                        <div className="flex items-center justify-between p-4 rounded-xl bg-slate-800/50 border border-slate-700">
+                        <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border-default)]">
                             <div>
-                                <div className="font-medium text-slate-200 flex items-center gap-2">
+                                <div className="font-medium text-[var(--color-text-primary)] flex items-center gap-2">
                                     <Trash2 className="size-4" />
                                     Delete Account
                                 </div>
-                                <p className="text-sm text-slate-400 mt-1">
+                                <p className="text-sm text-[var(--color-text-secondary)] mt-1">
                                     Permanently delete your account and all data.
                                 </p>
                             </div>
@@ -346,7 +346,7 @@ export default function Settings() {
                                 </div>
                             )}
                             <div className="space-y-2">
-                                <label className="text-sm text-slate-400">Display Name</label>
+                                <label className="text-sm text-[var(--color-text-secondary)]">Display Name</label>
                                 <Input
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
@@ -388,7 +388,7 @@ export default function Settings() {
                                 </div>
                             )}
                             <div className="space-y-2">
-                                <label className="text-sm text-slate-400">New Email Address</label>
+                                <label className="text-sm text-[var(--color-text-secondary)]">New Email Address</label>
                                 <Input
                                     type="email"
                                     value={email}
@@ -398,7 +398,7 @@ export default function Settings() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm text-slate-400">Confirm with Password</label>
+                                <label className="text-sm text-[var(--color-text-secondary)]">Confirm with Password</label>
                                 <Input
                                     type="password"
                                     value={emailPassword}
@@ -440,7 +440,7 @@ export default function Settings() {
                                 </div>
                             )}
                             <div className="space-y-2">
-                                <label className="text-sm text-slate-400">Current Password</label>
+                                <label className="text-sm text-[var(--color-text-secondary)]">Current Password</label>
                                 <Input
                                     type="password"
                                     value={currentPassword}
@@ -450,7 +450,7 @@ export default function Settings() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm text-slate-400">New Password</label>
+                                <label className="text-sm text-[var(--color-text-secondary)]">New Password</label>
                                 <Input
                                     type="password"
                                     value={newPassword}
@@ -460,7 +460,7 @@ export default function Settings() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm text-slate-400">Confirm New Password</label>
+                                <label className="text-sm text-[var(--color-text-secondary)]">Confirm New Password</label>
                                 <Input
                                     type="password"
                                     value={confirmPassword}
@@ -492,7 +492,7 @@ export default function Settings() {
                             <CardTitle className="text-amber-400">⚠️ Reset Learning Progress?</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <p className="text-slate-300">
+                            <p className="text-[var(--color-text-secondary)]">
                                 This will delete all your cards, review history, and study sessions.
                                 You'll need to add cards again from the vocabulary list.
                             </p>
@@ -521,12 +521,12 @@ export default function Settings() {
                             <CardTitle className="text-red-400">🗑️ Delete Account?</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <p className="text-slate-300">
+                            <p className="text-[var(--color-text-secondary)]">
                                 This action is <strong>permanent</strong> and cannot be undone.
                                 All your data will be deleted forever.
                             </p>
                             <div className="space-y-2">
-                                <label className="text-sm text-slate-400">Enter your password to confirm</label>
+                                <label className="text-sm text-[var(--color-text-secondary)]">Enter your password to confirm</label>
                                 <Input
                                     type="password"
                                     value={deletePassword}

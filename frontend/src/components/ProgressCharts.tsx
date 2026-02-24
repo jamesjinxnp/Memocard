@@ -166,10 +166,10 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
             <div className="space-y-4 animate-pulse">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[...Array(4)].map((_, i) => (
-                        <Card key={i} className="h-20 bg-slate-800/50" />
+                        <Card key={i} className="h-20 bg-[var(--color-bg-surface)]" />
                     ))}
                 </div>
-                <Card className="h-40 bg-slate-800/50" />
+                <Card className="h-40 bg-[var(--color-bg-surface)]" />
             </div>
         );
     }
@@ -197,10 +197,10 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                                         <Icon className={`size-4 ${stat.color}`} />
                                     </div>
                                     <div>
-                                        <div className="text-[10px] text-slate-400">{stat.title}</div>
-                                        <div className="text-base font-bold text-slate-100">
+                                        <div className="text-[10px] text-[var(--color-text-secondary)]">{stat.title}</div>
+                                        <div className="text-base font-bold text-[var(--color-text-primary)]">
                                             {stat.value}
-                                            {stat.suffix && <span className="text-[10px] ml-1 text-slate-400">{stat.suffix}</span>}
+                                            {stat.suffix && <span className="text-[10px] ml-1 text-[var(--color-text-secondary)]">{stat.suffix}</span>}
                                         </div>
                                     </div>
                                 </div>
@@ -221,10 +221,10 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                                 <Calendar className="size-4 text-emerald-400" />
                             </div>
                             <span>Study Activity</span>
-                            <div className="ml-auto flex items-center gap-2 text-[11px] text-slate-500">
+                            <div className="ml-auto flex items-center gap-2 text-[11px] text-[var(--color-text-muted)]">
                                 <span>Less</span>
                                 <div className="flex gap-[2px]">
-                                    <div className="w-[10px] h-[10px] rounded-[2px] bg-slate-700/60" />
+                                    <div className="w-[10px] h-[10px] rounded-[2px] bg-[var(--color-bg-elevated)]/60" />
                                     <div className="w-[10px] h-[10px] rounded-[2px] bg-emerald-900/70" />
                                     <div className="w-[10px] h-[10px] rounded-[2px] bg-emerald-600/80" />
                                     <div className="w-[10px] h-[10px] rounded-[2px] bg-emerald-400" />
@@ -241,13 +241,13 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                                     const container = document.getElementById('heatmap-container');
                                     if (container) container.scrollBy({ left: -150, behavior: 'smooth' });
                                 }}
-                                className="p-1 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-slate-200 transition-colors shrink-0"
+                                className="p-1 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-[var(--color-text-secondary)] hover:text-slate-200 transition-colors shrink-0"
                             >
                                 <ChevronLeft className="size-4" />
                             </button>
 
                             {/* Day labels - All 7 days */}
-                            <div className="flex flex-col gap-[2px] pr-1 text-[10px] text-slate-500 shrink-0">
+                            <div className="flex flex-col gap-[2px] pr-1 text-[10px] text-[var(--color-text-muted)] shrink-0">
                                 {dayLabels.map((day, i) => (
                                     <div key={i} className="h-[11px] flex items-center justify-end">
                                         {day}
@@ -283,7 +283,7 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                                                             }
 
                                                             const levelStyles = [
-                                                                'bg-slate-700/60',
+                                                                'bg-[var(--color-bg-elevated)]/60',
                                                                 'bg-emerald-900/70',
                                                                 'bg-emerald-600/80',
                                                                 'bg-emerald-400',
@@ -308,7 +308,7 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                                                 ))}
                                             </div>
                                             {/* Month label */}
-                                            <div className="text-[10px] text-slate-500 mt-1">
+                                            <div className="text-[10px] text-[var(--color-text-muted)] mt-1">
                                                 {month.label}
                                             </div>
                                         </div>
@@ -322,7 +322,7 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                                     const container = document.getElementById('heatmap-container');
                                     if (container) container.scrollBy({ left: 150, behavior: 'smooth' });
                                 }}
-                                className="p-1 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-slate-200 transition-colors shrink-0"
+                                className="p-1 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 text-[var(--color-text-secondary)] hover:text-slate-200 transition-colors shrink-0"
                             >
                                 <ChevronRight className="size-4" />
                             </button>
@@ -345,12 +345,12 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                             <div className={`text-3xl font-bold ${countdown === 'Now!'
                                 ? 'text-emerald-400 animate-pulse'
                                 : countdown === 'No reviews due'
-                                    ? 'text-slate-500 text-lg'
+                                    ? 'text-[var(--color-text-muted)] text-lg'
                                     : 'text-purple-400'
                                 }`}>
                                 {countdown}
                             </div>
-                            <div className="text-xs text-slate-500 mt-2">
+                            <div className="text-xs text-[var(--color-text-muted)] mt-2">
                                 {countdown === 'Now!'
                                     ? 'Cards ready to review!'
                                     : countdown === 'No reviews due'

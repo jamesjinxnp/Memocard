@@ -78,10 +78,10 @@ function getModesForState(state: CardStateValue): StudyModeType[] {
     switch (state) {
         case 0: // New - Start with passive exposure
             return ['reading', 'listening', 'multiple_choice'];
-        case 1: // Learning - Focus on active recall
-            return ['typing', 'spelling', 'listening'];
-        case 2: // Review - Focus on active recall
-            return ['typing', 'spelling', 'listening'];
+        case 1: // Learning - Focus on active recall but start with reading context
+            return ['reading', 'typing', 'spelling', 'listening'];
+        case 2: // Review - Start with reading context (Flashcard) then active recall
+            return ['reading', 'typing', 'spelling', 'listening'];
         case 3: // Relearning - Re-introduce with passive exposure
             return ['reading', 'listening', 'multiple_choice'];
         default:

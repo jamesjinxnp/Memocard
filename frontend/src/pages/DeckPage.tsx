@@ -172,22 +172,22 @@ export default function DeckPage() {
 
     if (countsLoading) {
         return (
-            <div className="min-h-screen min-h-dvh w-full bg-slate-900 flex items-center justify-center">
+            <div className="min-h-screen min-h-dvh w-full bg-deep flex items-center justify-center">
                 <Loader2 className="size-8 text-primary animate-spin" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen min-h-dvh w-full bg-slate-900">
+        <div className="min-h-screen min-h-dvh w-full bg-deep">
             {/* Header */}
-            <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/95 backdrop-blur">
+            <header className="sticky top-0 z-50 w-full border-b border-[var(--color-border-default)] bg-deep/95 backdrop-blur">
                 <div className="max-w-6xl mx-auto flex h-14 items-center justify-between px-4">
                     <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
                         <ArrowLeft className="size-4" />
                         Back
                     </Button>
-                    <h1 className="font-semibold text-slate-100">{deckInfo.name}</h1>
+                    <h1 className="font-semibold font-display text-[var(--color-text-primary)]">{deckInfo.name}</h1>
                     <div className="relative">
                         <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)}>
                             <Settings className="size-4" />
@@ -205,15 +205,15 @@ export default function DeckPage() {
                                 />
                                 {/* Popover */}
                                 <div className="absolute right-0 top-full mt-2 z-50 w-80">
-                                    <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-2xl">
-                                        <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2 mb-4">
+                                    <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-xl p-4 shadow-2xl">
+                                        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] flex items-center gap-2 mb-4">
                                             <Settings className="size-4" />
                                             Deck Settings
                                         </h3>
 
                                         <div className="space-y-3">
                                             <div className="space-y-2">
-                                                <label className="text-xs text-slate-300">คำใหม่ต่อวัน</label>
+                                                <label className="text-xs text-[var(--color-text-secondary)]">คำใหม่ต่อวัน</label>
                                                 <div className="flex items-start gap-3">
                                                     {/* Left Wrapper: Slider + Labels */}
                                                     <div className="flex-1 space-y-1">
@@ -224,9 +224,9 @@ export default function DeckPage() {
                                                             step="5"
                                                             value={tempDailyCards}
                                                             onChange={(e) => setTempDailyCards(parseInt(e.target.value))}
-                                                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                                                            className="w-full h-2 bg-[var(--color-bg-elevated)] rounded-lg appearance-none cursor-pointer accent-primary"
                                                         />
-                                                        <div className="flex justify-between text-[10px] text-slate-500">
+                                                        <div className="flex justify-between text-[10px] text-[var(--color-text-muted)]">
                                                             <span>5</span>
                                                             <span>25</span>
                                                             <span>50</span>
@@ -251,12 +251,12 @@ export default function DeckPage() {
                                                             const clamped = Math.min(100, Math.max(5, value));
                                                             setTempDailyCards(clamped);
                                                         }}
-                                                        className="w-14 h-8 px-2 text-center text-sm font-bold text-primary bg-slate-700/50 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                        className="w-14 h-8 px-2 text-center text-sm font-bold text-primary bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border-default)] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                     />
                                                 </div>
                                             </div>
 
-                                            <p className="text-[10px] text-slate-400">
+                                            <p className="text-[10px] text-[var(--color-text-secondary)]">
                                                 จำนวนคำศัพท์ใหม่ที่จะเรียนต่อวัน
                                             </p>
                                         </div>
@@ -268,7 +268,7 @@ export default function DeckPage() {
                                                     setTempDailyCards(dailyNewCards);
                                                     setShowSettings(false);
                                                 }}
-                                                className="flex-1 px-3 py-1.5 text-sm bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-colors"
+                                                className="flex-1 px-3 py-1.5 text-sm bg-[var(--color-bg-elevated)] hover:brightness-110 text-[var(--color-text-secondary)] rounded-lg transition-colors"
                                             >
                                                 Cancel
                                             </button>
@@ -292,7 +292,7 @@ export default function DeckPage() {
 
             <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
                 {/* Deck Header */}
-                <div className={`relative overflow-hidden rounded-2xl border border-slate-700/50 bg-gradient-to-r ${deckInfo.color} p-6`}>
+                <div className={`relative overflow-hidden rounded-2xl border border-[var(--color-border-default)] bg-gradient-to-r ${deckInfo.color} p-6`}>
                     <div className="relative z-10">
                         <h2 className="text-2xl font-bold text-white mb-2">{deckInfo.name}</h2>
                         <p className="text-white/80 mb-4">{deckInfo.description}</p>
@@ -314,33 +314,33 @@ export default function DeckPage() {
 
                 {/* Session Progress UI */}
                 {queueData && (
-                    <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4">
-                        <h3 className="text-sm font-medium text-slate-400 mb-3">คิวที่ต้องเรียนวันนี้</h3>
+                    <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-xl p-4">
+                        <h3 className="text-sm font-medium text-[var(--color-text-secondary)] mb-3">คิวที่ต้องเรียนวันนี้</h3>
                         <div className="grid grid-cols-4 gap-3">
                             {/* Relearning */}
-                            <div className={`p-3 rounded-lg text-center ${(queueData.totalByState?.relearning || 0) > 0 ? 'bg-red-500/20 border border-red-500/50' : 'bg-slate-700/50'}`}>
+                            <div className={`p-3 rounded-lg text-center ${(queueData.totalByState?.relearning || 0) > 0 ? 'bg-red-500/20 border border-red-500/50' : 'bg-[var(--color-bg-elevated)]/50'}`}>
                                 <div className="text-2xl font-bold text-red-400">{queueData.totalByState?.relearning || 0}</div>
-                                <div className="text-xs text-slate-400">🔴 Relearn</div>
+                                <div className="text-xs text-[var(--color-text-secondary)]">🔴 Relearn</div>
                             </div>
                             {/* Learning */}
-                            <div className={`p-3 rounded-lg text-center ${(queueData.totalByState?.learning || 0) > 0 ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-slate-700/50'}`}>
+                            <div className={`p-3 rounded-lg text-center ${(queueData.totalByState?.learning || 0) > 0 ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-[var(--color-bg-elevated)]/50'}`}>
                                 <div className="text-2xl font-bold text-orange-400">{queueData.totalByState?.learning || 0}</div>
-                                <div className="text-xs text-slate-400">🟠 Learn</div>
+                                <div className="text-xs text-[var(--color-text-secondary)]">🟠 Learn</div>
                             </div>
                             {/* Review */}
-                            <div className={`p-3 rounded-lg text-center ${(queueData.totalByState?.review || 0) > 0 ? 'bg-yellow-500/20 border border-yellow-500/50' : 'bg-slate-700/50'}`}>
+                            <div className={`p-3 rounded-lg text-center ${(queueData.totalByState?.review || 0) > 0 ? 'bg-yellow-500/20 border border-yellow-500/50' : 'bg-[var(--color-bg-elevated)]/50'}`}>
                                 <div className="text-2xl font-bold text-yellow-400">{queueData.totalByState?.review || 0}</div>
-                                <div className="text-xs text-slate-400">🟡 Review</div>
+                                <div className="text-xs text-[var(--color-text-secondary)]">🟡 Review</div>
                             </div>
                             {/* New */}
-                            <div className={`p-3 rounded-lg text-center ${(queueData.totalByState?.new || 0) > 0 ? 'bg-green-500/20 border border-green-500/50' : 'bg-slate-700/50'}`}>
+                            <div className={`p-3 rounded-lg text-center ${(queueData.totalByState?.new || 0) > 0 ? 'bg-green-500/20 border border-green-500/50' : 'bg-[var(--color-bg-elevated)]/50'}`}>
                                 <div className="text-2xl font-bold text-green-400">{queueData.totalByState?.new || 0}</div>
-                                <div className="text-xs text-slate-400">🟢 New</div>
+                                <div className="text-xs text-[var(--color-text-secondary)]">🟢 New</div>
                             </div>
                         </div>
                         {/* Quota info */}
                         {queueData.quota && (
-                            <div className="mt-3 text-xs text-slate-500 text-center">
+                            <div className="mt-3 text-xs text-[var(--color-text-muted)] text-center">
                                 คำใหม่วันนี้: {queueData.quota.used || 0}/{queueData.quota.daily || dailyNewCards}
                             </div>
                         )}
@@ -359,7 +359,7 @@ export default function DeckPage() {
 
                 {/* Level Cards Section */}
                 <section>
-                    <h3 className="text-lg font-semibold text-slate-100 mb-4">คำศัพท์ตามระดับ</h3>
+                    <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-4">คำศัพท์ตามระดับ</h3>
 
                     {/* Level Cards Grid - Horizontal */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
@@ -371,13 +371,13 @@ export default function DeckPage() {
                                     onClick={() => toggleLevel(level)}
                                     className={`rounded-xl border py-8 px-4 text-center transition-all ${isExpanded
                                         ? 'border-primary bg-primary/10 ring-2 ring-primary/50'
-                                        : 'border-slate-700/50 bg-slate-800/50 hover:border-primary/50 hover:bg-slate-700/30'
+                                        : 'border-[var(--color-border-default)] bg-[var(--color-bg-surface)] hover:border-primary/50 hover:bg-primary/5'
                                         }`}
                                 >
                                     <div className={`inline-block px-5 py-2 rounded-full text-white text-xl font-bold mb-3 ${levelColors[level]}`}>
                                         {level}
                                     </div>
-                                    <div className="text-slate-100 font-medium text-lg">{count} คำ</div>
+                                    <div className="text-[var(--color-text-primary)] font-medium text-lg">{count} คำ</div>
                                 </button>
                             );
                         })}
@@ -385,21 +385,21 @@ export default function DeckPage() {
 
                     {/* Expanded Vocabulary Cards with Search */}
                     {expandedLevel && (
-                        <div className="rounded-xl border border-slate-700/50 bg-slate-800/50 p-4 mb-4">
+                        <div className="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-4 mb-4">
                             {/* Header with level badge and search */}
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                                 <div className="flex items-center gap-2">
                                     <span className={`px-3 py-1 rounded-full text-white text-sm font-bold ${levelColors[expandedLevel]}`}>
                                         {expandedLevel}
                                     </span>
-                                    <span className="text-slate-400 text-sm">
+                                    <span className="text-[var(--color-text-secondary)] text-sm">
                                         {filteredWords.length} / {allExpandedWords.length} คำ
                                     </span>
                                 </div>
 
                                 {/* Search Box */}
                                 <div className="flex-1 relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--color-text-muted)]" />
                                     <input
                                         type="text"
                                         placeholder="ค้นหาคำศัพท์..."
@@ -408,7 +408,7 @@ export default function DeckPage() {
                                             setSearchQuery(e.target.value);
                                             setDisplayCount(WORDS_PER_PAGE); // Reset pagination on search
                                         }}
-                                        className="w-full pl-10 pr-4 py-2 rounded-lg bg-slate-700/50 border border-slate-600 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                                        className="w-full pl-10 pr-4 py-2 rounded-lg bg-[var(--color-bg-elevated)]/50 border border-[var(--color-border-default)] text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                                     />
                                 </div>
                             </div>
@@ -420,10 +420,10 @@ export default function DeckPage() {
                                         {displayedWords.map((word) => (
                                             <div
                                                 key={word.id}
-                                                className="rounded-xl border border-slate-700/50 bg-slate-800/80 p-3 hover:border-primary/50 hover:bg-slate-700/50 transition-all group/card"
+                                                className="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-3 hover:border-primary/50 hover:bg-primary/5 transition-all group/card"
                                             >
                                                 <div className="flex items-start justify-between gap-1">
-                                                    <span className="font-medium text-slate-100 text-sm leading-tight">{word.word}</span>
+                                                    <span className="font-medium text-[var(--color-text-primary)] text-sm leading-tight">{word.word}</span>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -434,10 +434,10 @@ export default function DeckPage() {
                                                     </Button>
                                                 </div>
                                                 {word.type && (
-                                                    <div className="text-xs text-slate-500 italic mt-0.5">{word.type}</div>
+                                                    <div className="text-xs text-[var(--color-text-muted)] italic mt-0.5">{word.type}</div>
                                                 )}
                                                 {word.defTh && (
-                                                    <div className="text-xs text-slate-400 mt-1 line-clamp-2">{word.defTh}</div>
+                                                    <div className="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2">{word.defTh}</div>
                                                 )}
                                             </div>
                                         ))}
@@ -458,7 +458,7 @@ export default function DeckPage() {
                                     )}
                                 </>
                             ) : (
-                                <div className="text-center py-8 text-slate-400">
+                                <div className="text-center py-8 text-[var(--color-text-secondary)]">
                                     ไม่พบคำศัพท์ที่ค้นหา
                                 </div>
                             )}

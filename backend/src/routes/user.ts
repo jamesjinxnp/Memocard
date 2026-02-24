@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia';
 import bcrypt from 'bcryptjs';
 import { db } from '../db/client';
-import { users, cards, reviewLogs, studySessions } from '../db/schema';
+import { users, cards, reviewLogs, studySessions, userStats, userProgress } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getUserFromHeader } from '../middleware/auth';
 
@@ -153,11 +153,18 @@ const user = new Elysia({ prefix: '/user' })
             return { error: 'Unauthorized' };
         }
 
-        // Delete all cards for this user (review logs will cascade)
+        // Delete all review logs for this user
+        await db.delete(reviewLogs).where(eq(reviewLogs.userId, authUser.userId));
+
+        // Delete all cards for this user
         await db.delete(cards).where(eq(cards.userId, authUser.userId));
 
         // Delete all study sessions
         await db.delete(studySessions).where(eq(studySessions.userId, authUser.userId));
+
+        // Reset gamification: streak, XP, crowns, node progress
+        await db.delete(userStats).where(eq(userStats.userId, authUser.userId));
+        await db.delete(userProgress).where(eq(userProgress.userId, authUser.userId));
 
         return { message: 'All learning progress has been reset' };
     })

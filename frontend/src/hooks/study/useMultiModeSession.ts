@@ -38,6 +38,10 @@ export interface UseMultiModeSessionProps {
     dailyLimit?: number;
     /** Whether to enable the hook */
     enabled: boolean;
+    /** Whether to force start-with-reading (Learning Path behavior) for review mode */
+    isPathContext?: boolean;
+    /** Whether to only show review/relearning/learning cards (no new cards, no auto-seeding) */
+    reviewOnly?: boolean;
 }
 
 export interface MultiModeSessionReturn {
@@ -92,21 +96,35 @@ function shuffleArray<T>(array: T[]): T[] {
  * Get modes based on card state (for review mode only)
  * Node mode uses pre-defined mode queues from backend
  */
-function getModesForCardState(state: number): StudyModeType[] {
+function getModesForCardState(state: number, isPathMode: boolean = false): StudyModeType[] {
     const ALL_MODES: StudyModeType[] = ['typing', 'listening', 'multiple_choice', 'cloze', 'spelling', 'audio_choice'];
+    let modes: StudyModeType[] = [];
 
     switch (state) {
         case 0: // New - Reading + 3 Active modes
-            return ['reading', ...shuffleArray(['multiple_choice', 'audio_choice', 'cloze', 'typing'] as StudyModeType[]).slice(0, 3)];
+            modes = ['reading', ...shuffleArray(['multiple_choice', 'audio_choice', 'cloze', 'typing'] as StudyModeType[]).slice(0, 3)];
+            break;
         case 1: // Learning - 2-3 Medium modes
-            return shuffleArray(['cloze', 'audio_choice', 'multiple_choice', 'spelling'] as StudyModeType[]).slice(0, 3);
+            modes = shuffleArray(['cloze', 'audio_choice', 'multiple_choice', 'spelling'] as StudyModeType[]).slice(0, 3);
+            break;
         case 2: // Review - 2 Hard modes
-            return shuffleArray(['spelling', 'typing', 'listening'] as StudyModeType[]).slice(0, 2);
+            modes = shuffleArray(['spelling', 'typing', 'listening'] as StudyModeType[]).slice(0, 2);
+            break;
         case 3: // Relearning - Reading + 2 Medium
-            return ['reading', ...shuffleArray(['cloze', 'audio_choice', 'multiple_choice'] as StudyModeType[]).slice(0, 2)];
+            modes = ['reading', ...shuffleArray(['cloze', 'audio_choice', 'multiple_choice'] as StudyModeType[]).slice(0, 2)];
+            break;
         default:
-            return ['reading', ...shuffleArray(ALL_MODES).slice(0, 3)];
+            modes = ['reading', ...shuffleArray(ALL_MODES).slice(0, 3)];
+            break;
     }
+
+    // Unify Path Mode Experience: Always start with Reading (Flashcard)
+    // This ensures "Review Time!" nodes feel like "Lessons" rather than just a test.
+    if (isPathMode && modes[0] !== 'reading') {
+        return ['reading', ...modes];
+    }
+
+    return modes;
 }
 
 // ==================== Hook ====================
@@ -116,6 +134,8 @@ export function useMultiModeSession({
     sourceId,
     dailyLimit = 20,
     enabled,
+    isPathContext = false,
+    reviewOnly = false,
 }: UseMultiModeSessionProps): MultiModeSessionReturn {
     // ==================== State ====================
     const queryClient = useQueryClient();
@@ -142,8 +162,8 @@ export function useMultiModeSession({
             let queueResponse = await studyApi.getQueue(sourceId || undefined, dailyLimit);
             let queue = queueResponse.data;
 
-            // Auto-seed if needed
-            if (queue.needMoreSeeds && sourceId) {
+            // Auto-seed if needed (skip for review-only sessions like "Review Time!")
+            if (!reviewOnly && queue.needMoreSeeds && sourceId) {
                 await studyApi.learnDeck(sourceId, dailyLimit);
                 queueResponse = await studyApi.getQueue(sourceId, dailyLimit);
                 queue = queueResponse.data;
@@ -154,7 +174,7 @@ export function useMultiModeSession({
                 ...(queue.relearning || []).map((c: { id: string; vocabulary: Vocabulary }) => ({ ...c, originalState: 3 as CardStateValue })),
                 ...queue.learning.map((c: { id: string; vocabulary: Vocabulary }) => ({ ...c, originalState: 1 as CardStateValue })),
                 ...queue.due.map((c: { id: string; vocabulary: Vocabulary }) => ({ ...c, originalState: 2 as CardStateValue })),
-                ...queue.new.map((c: { id: string; vocabulary: Vocabulary }) => ({ ...c, originalState: 0 as CardStateValue })),
+                ...(reviewOnly ? [] : queue.new.map((c: { id: string; vocabulary: Vocabulary }) => ({ ...c, originalState: 0 as CardStateValue }))),
             ];
 
             return {
@@ -173,19 +193,26 @@ export function useMultiModeSession({
     // IMPORTANT: Use the SAME getModesForCardState() as review mode for unified behavior
     useEffect(() => {
         if (enabled && sourceType === 'node' && nodeSessionData?.items?.length && cardStates.length === 0) {
-            const initialStates: CardStudyState[] = nodeSessionData.items.map((item) => ({
-                // Use card ID if exists, otherwise create temp ID from vocab
-                cardId: item.card?.id ?? `temp-${item.vocab.id}`,
-                vocabulary: item.vocab,
-                originalState: item.originalState,
-                // Use the SAME adaptive mode generation as review mode (NOT backend's hardcoded queue)
-                modeQueue: getModesForCardState(item.originalState),
-                currentModeIndex: 0,
-                retryQueue: [],
-                modeAttempts: new Map(),
-                usedHint: false,
-                isComplete: false,
-            }));
+            const initialStates: CardStudyState[] = nodeSessionData.items.map((item) => {
+                const modeQueue = getModesForCardState(item.originalState, true);
+                if (item.originalState === 2) {
+                    console.log(`[useMultiModeSession] Card ${item.vocab.word} (Review) -> Queue:`, modeQueue);
+                }
+                return {
+                    // Use card ID if exists, otherwise create temp ID from vocab
+                    cardId: item.card?.id ?? `temp-${item.vocab.id}`,
+                    vocabulary: item.vocab,
+                    originalState: item.originalState,
+                    // Use the SAME adaptive mode generation as review mode (NOT backend's hardcoded queue)
+                    modeQueue,
+                    currentModeIndex: 0,
+                    retryQueue: [],
+                    modeAttempts: new Map(),
+                    usedHint: false,
+                    isComplete: false,
+                };
+            });
+            console.log('[useMultiModeSession] Initialized Node Session:', initialStates.length, 'cards');
             setCardStates(initialStates);
             setCurrentCardIdx(0);
             setCurrentRound(0);
@@ -201,7 +228,7 @@ export function useMultiModeSession({
                 cardId: card.id,
                 vocabulary: card.vocabulary,
                 originalState: card.originalState,
-                modeQueue: getModesForCardState(card.originalState),
+                modeQueue: getModesForCardState(card.originalState, isPathContext), // Use context to force reading mode if needed
                 currentModeIndex: 0,
                 retryQueue: [],
                 modeAttempts: new Map(),

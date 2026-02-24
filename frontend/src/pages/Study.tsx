@@ -40,6 +40,7 @@ export default function Study() {
 
     // Determine study context: node mode or deck review mode
     const isNodeMode = !!nodeId;
+    const isPathContext = searchParams.get('context') === 'path' || isNodeMode;
     const isMultiMode = isNodeMode || mode === 'multi';
 
     // ==================== Daily Limit ====================
@@ -57,6 +58,8 @@ export default function Study() {
         sourceId: isNodeMode ? nodeId! : (deckId ?? ''),
         dailyLimit,
         enabled: isMultiMode,
+        isPathContext, // Force Reading First if from Path
+        reviewOnly: isPathContext && !isNodeMode, // Review Time! from path = review-only, no new cards
     });
     const {
         cardStates,
@@ -195,7 +198,7 @@ export default function Study() {
     const isLoading = isMultiMode ? multiLoading : singleLoading;
     if (isLoading) {
         return (
-            <div className="min-h-screen min-h-dvh w-full flex items-center justify-center bg-slate-900">
+            <div className="min-h-screen min-h-dvh w-full flex items-center justify-center bg-deep">
                 <Loader2 className="size-8 text-primary animate-spin" />
             </div>
         );
@@ -205,10 +208,10 @@ export default function Study() {
     const hasCards = isMultiMode ? cardStates.length > 0 : sessionData?.cards?.length > 0;
     if (!hasCards) {
         return (
-            <div className="min-h-screen min-h-dvh w-full flex flex-col items-center justify-center gap-4 p-6 bg-slate-900 text-center">
+            <div className="min-h-screen min-h-dvh w-full flex flex-col items-center justify-center gap-4 p-6 bg-deep text-center">
                 <PartyPopper className="size-16 text-amber-400" />
-                <h2 className="text-2xl font-bold text-slate-100">No cards due!</h2>
-                <p className="text-slate-400">Great job! You've reviewed all your cards for now.</p>
+                <h2 className="text-2xl font-bold text-[var(--color-text-primary)]">No cards due!</h2>
+                <p className="text-[var(--color-text-secondary)]">Great job! You've reviewed all your cards for now.</p>
                 <Button size="lg" onClick={() => navigate('/')}>
                     Back to Dashboard
                 </Button>
@@ -224,10 +227,10 @@ export default function Study() {
         if (isNodeMode) {
             if (completeNodeMutation.isPending) {
                 return (
-                    <div className="min-h-screen min-h-dvh w-full flex items-center justify-center bg-slate-900">
+                    <div className="min-h-screen min-h-dvh w-full flex items-center justify-center bg-deep">
                         <div className="text-center space-y-4">
                             <Loader2 className="size-12 text-primary animate-spin mx-auto" />
-                            <p className="text-slate-400">Saving your progress...</p>
+                            <p className="text-[var(--color-text-secondary)]">Saving your progress...</p>
                         </div>
                     </div>
                 );
@@ -235,11 +238,11 @@ export default function Study() {
 
             // Show completion result with stars/XP
             return (
-                <div className="min-h-screen min-h-dvh w-full flex items-center justify-center p-6 bg-slate-900">
+                <div className="min-h-screen min-h-dvh w-full flex items-center justify-center p-6 bg-deep">
                     <Card className="max-w-md w-full text-center">
                         <CardContent className="p-8 space-y-6">
                             <PartyPopper className="size-16 text-amber-400 mx-auto" />
-                            <h2 className="text-2xl font-bold text-slate-100">Node Complete!</h2>
+                            <h2 className="text-2xl font-bold font-display text-[var(--color-text-primary)]">Node Complete!</h2>
 
                             {/* Stars Display */}
                             {nodeCompletionData && (
@@ -248,7 +251,7 @@ export default function Study() {
                                         {[1, 2, 3].map((star) => (
                                             <span
                                                 key={star}
-                                                className={`text-4xl ${star <= nodeCompletionData.stars ? 'text-amber-400' : 'text-slate-600'}`}
+                                                className={`text-4xl ${star <= nodeCompletionData.stars ? 'text-accent-amber' : 'text-[var(--color-text-muted)]'}`}
                                             >
                                                 ⭐
                                             </span>
@@ -257,19 +260,19 @@ export default function Study() {
                                     <div className="flex justify-center gap-6 text-sm">
                                         <div className="text-center">
                                             <div className="text-2xl font-bold text-emerald-400">+{nodeCompletionData.xpEarned}</div>
-                                            <div className="text-slate-500">XP</div>
+                                            <div className="text-[var(--color-text-muted)]">XP</div>
                                         </div>
                                         {nodeCompletionData.crowns > 0 && (
                                             <div className="text-center">
                                                 <div className="text-2xl font-bold text-amber-400">+{nodeCompletionData.crowns}</div>
-                                                <div className="text-slate-500">Crowns</div>
+                                                <div className="text-[var(--color-text-muted)]">Crowns</div>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             )}
 
-                            <p className="text-slate-400">You reviewed {totalCards} cards</p>
+                            <p className="text-[var(--color-text-secondary)]">You reviewed {totalCards} cards</p>
 
                             <div className="flex gap-3 justify-center pt-4">
                                 {nodeCompletionData?.nextNodeId && (
@@ -294,12 +297,12 @@ export default function Study() {
 
         // Regular mode: simple completion card
         return (
-            <div className="min-h-screen min-h-dvh w-full flex items-center justify-center p-6 bg-slate-900">
+            <div className="min-h-screen min-h-dvh w-full flex items-center justify-center p-6 bg-deep">
                 <Card className="max-w-md w-full text-center">
                     <CardContent className="p-8 space-y-4">
                         <PartyPopper className="size-16 text-amber-400 mx-auto" />
-                        <h2 className="text-2xl font-bold text-slate-100">Session Complete!</h2>
-                        <p className="text-slate-400">You reviewed {totalCards} cards</p>
+                        <h2 className="text-2xl font-bold font-display text-[var(--color-text-primary)]">Session Complete!</h2>
+                        <p className="text-[var(--color-text-secondary)]">You reviewed {totalCards} cards</p>
                         <div className="flex gap-3 justify-center pt-4">
                             <Button onClick={() => window.location.reload()}>
                                 Study More
@@ -317,7 +320,7 @@ export default function Study() {
     // ==================== No Vocabulary/Mode Available ====================
     if (!vocabulary || !currentMode) {
         return (
-            <div className="min-h-screen min-h-dvh w-full flex items-center justify-center bg-slate-900">
+            <div className="min-h-screen min-h-dvh w-full flex items-center justify-center bg-deep">
                 <Loader2 className="size-8 text-primary animate-spin" />
             </div>
         );
@@ -330,36 +333,46 @@ export default function Study() {
         : ((currentCardIndex + 1) / totalCards) * 100;
 
     // ==================== Render Mode ====================
+    // Generate a key that changes whenever the card changes OR is retried.
+    // This forces React to unmount/remount the mode component, resetting all internal state
+    // (fixes: same card retry not resetting ClozeMode when vocabulary.id doesn't change)
+    const modeResetKey = isMultiMode
+        ? `${currentCardIdx}-${currentCardState?.retryQueue.length ?? 0}-${currentCardState?.modeAttempts.size ?? 0}-${Array.from(currentCardState?.modeAttempts.values() ?? []).reduce((s, v) => s + v, 0)}`
+        : `${currentCardIndex}`;
+
     const renderMode = () => {
         switch (currentMode) {
             case 'reading':
-                return <ReadingMode vocabulary={vocabulary} onRate={handleRate} />;
+                return <ReadingMode key={modeResetKey} vocabulary={vocabulary} onRate={handleRate} />;
             case 'typing':
-                return <TypingMode vocabulary={vocabulary} onRate={handleRate} />;
+                return <TypingMode key={modeResetKey} vocabulary={vocabulary} onRate={handleRate} />;
             case 'listening':
-                return <ListeningMode vocabulary={vocabulary} onRate={handleRate} />;
+                return <ListeningMode key={modeResetKey} vocabulary={vocabulary} onRate={handleRate} />;
             case 'multiple_choice':
-                return <MultipleChoiceMode vocabulary={vocabulary} distractors={distractors} onRate={handleRate} />;
+                return <MultipleChoiceMode key={modeResetKey} vocabulary={vocabulary} distractors={distractors} onRate={handleRate} />;
             case 'cloze':
-                return <ClozeMode vocabulary={vocabulary} onRate={handleRate} />;
+                return <ClozeMode key={modeResetKey} vocabulary={vocabulary} onRate={handleRate} />;
             case 'spelling':
-                return <SpellingBeeMode vocabulary={vocabulary} onRate={handleRate} />;
+                return <SpellingBeeMode key={modeResetKey} vocabulary={vocabulary} onRate={handleRate} />;
             case 'audio_choice':
-                return <AudioChoiceMode vocabulary={vocabulary} distractors={distractors} onRate={handleRate} />;
+                return <AudioChoiceMode key={modeResetKey} vocabulary={vocabulary} distractors={distractors} onRate={handleRate} />;
             default:
-                return <ReadingMode vocabulary={vocabulary} onRate={handleRate} />;
+                return <ReadingMode key={modeResetKey} vocabulary={vocabulary} onRate={handleRate} />;
         }
     };
 
     return (
-        <div className="min-h-screen min-h-dvh w-full flex flex-col bg-slate-900">
+        <div className="min-h-screen min-h-dvh w-full flex flex-col bg-deep">
             {/* Header */}
-            <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/95 backdrop-blur">
+            <header className="sticky top-0 z-50 w-full border-b border-[var(--color-border-default)] bg-deep/95 backdrop-blur">
                 <div className="max-w-6xl mx-auto flex h-14 items-center justify-between px-4">
                     <Button variant="ghost" size="sm" onClick={() => {
                         if (isNodeMode && nodeSessionData?.deckId) {
                             // Navigate back to learning path using deckId from session
                             navigate(`/path/${nodeSessionData.deckId}`);
+                        } else if (isPathContext && deckId) {
+                            // Review Time! from path → back to learning path
+                            navigate(`/path/${deckId}`);
                         } else if (deckId) {
                             navigate(`/deck/${deckId}`);
                         } else {
@@ -370,18 +383,18 @@ export default function Study() {
                         Back
                     </Button>
                     <div className="text-center">
-                        <h1 className="font-semibold text-slate-100">
+                        <h1 className="font-semibold font-display text-[var(--color-text-primary)]">
                             {MODE_NAMES[currentMode] || 'Study'}
                             {isRetrying && <span className="text-amber-400 ml-2">(Retry)</span>}
                         </h1>
                         {isMultiMode && currentCardState && (
-                            <div className="text-xs text-slate-400">
+                            <div className="text-xs text-[var(--color-text-secondary)]">
                                 Mode {currentCardState.currentModeIndex + 1}/{currentCardState.modeQueue.length}
                                 {currentCardState.retryQueue.length > 0 && ` + ${currentCardState.retryQueue.length} retry`}
                             </div>
                         )}
                     </div>
-                    <span className="text-sm text-slate-400">
+                    <span className="text-sm text-[var(--color-text-secondary)]">
                         {completedCount} / {totalCards}
                     </span>
                 </div>
@@ -389,7 +402,7 @@ export default function Study() {
 
             {/* State-based Progress Bar */}
             {isMultiMode && multiModeData?.counts && (
-                <div className="flex items-center gap-3 px-4 py-3 bg-slate-800/90 border-b border-slate-700 text-sm">
+                <div className="flex items-center gap-3 px-4 py-3 bg-[var(--color-bg-surface)]/90 border-b border-[var(--color-border-default)] text-sm">
                     {/* Relearning */}
                     {(multiModeData.counts.relearning || 0) > 0 && (
                         <div className="flex items-center gap-2 bg-red-500/20 px-3 py-1 rounded-full">
@@ -427,14 +440,14 @@ export default function Study() {
                         </div>
                     )}
                     {/* Total progress */}
-                    <div className="ml-auto bg-slate-700/50 px-3 py-1 rounded-full">
-                        <span className="text-slate-300 font-medium">Total: {completedCount}/{totalCards}</span>
+                    <div className="ml-auto bg-[var(--color-bg-elevated)]/50 px-3 py-1 rounded-full">
+                        <span className="text-[var(--color-text-secondary)] font-medium">Total: {completedCount}/{totalCards}</span>
                     </div>
                 </div>
             )}
 
             {/* Simple Progress Bar */}
-            <div className="h-1 bg-slate-800">
+            <div className="h-1 bg-[var(--color-bg-surface)]">
                 <div
                     className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-300"
                     style={{ width: `${progressPercent}%` }}
@@ -443,7 +456,7 @@ export default function Study() {
 
             {/* Mode indicators for multi-mode */}
             {isMultiMode && currentCardState && (
-                <div className="flex justify-center gap-2 py-3 bg-slate-800/50">
+                <div className="flex justify-center gap-2 py-3 bg-[var(--color-bg-elevated)]/50">
                     {currentCardState.modeQueue.map((m, i) => {
                         const isCompleted = i < currentCardState.currentModeIndex;
                         const isCurrent = i === currentCardState.currentModeIndex && currentCardState.retryQueue.length === 0;
@@ -455,7 +468,7 @@ export default function Study() {
                                 className={`w-2 h-2 rounded-full transition-all ${isCompleted ? 'bg-green-500' :
                                     isCurrent ? 'bg-primary scale-125' :
                                         isRetryMode ? 'bg-amber-500' :
-                                            'bg-slate-600'
+                                            'bg-[var(--color-bg-elevated)]'
                                     }`}
                                 title={MODE_NAMES[m]}
                             />
@@ -464,7 +477,7 @@ export default function Study() {
                     {/* Retry queue indicators */}
                     {currentCardState.retryQueue.length > 0 && (
                         <>
-                            <div className="w-px h-2 bg-slate-500" />
+                            <div className="w-px h-2 bg-[var(--color-text-muted)]" />
                             {currentCardState.retryQueue.map((m, i) => (
                                 <div
                                     key={`retry-${i}`}

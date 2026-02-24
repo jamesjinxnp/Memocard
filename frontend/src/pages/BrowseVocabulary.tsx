@@ -78,15 +78,15 @@ export default function BrowseVocabulary() {
     const vocabulary: Vocabulary[] = data?.items || data?.vocabulary || [];
 
     return (
-        <div className="min-h-screen min-h-dvh w-full bg-slate-900">
+        <div className="min-h-screen min-h-dvh w-full bg-deep">
             {/* Header */}
-            <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/95 backdrop-blur">
+            <header className="sticky top-0 z-50 w-full border-b border-[var(--color-border-default)] bg-deep/95 backdrop-blur">
                 <div className="max-w-6xl mx-auto flex h-14 items-center justify-between px-4">
                     <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
                         <ArrowLeft className="size-4" />
                         Back
                     </Button>
-                    <h1 className="font-semibold text-slate-100">Browse Vocabulary</h1>
+                    <h1 className="font-semibold font-display text-[var(--color-text-primary)]">Browse Vocabulary</h1>
                     <div className="w-20" />
                 </div>
             </header>
@@ -95,7 +95,7 @@ export default function BrowseVocabulary() {
                 {/* Search & Filter */}
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--color-text-muted)]" />
                         <Input
                             placeholder="Search vocabulary..."
                             value={searchQuery}
@@ -107,7 +107,7 @@ export default function BrowseVocabulary() {
 
                 {/* Deck Filter Tabs */}
                 <div className="flex gap-2 flex-wrap">
-                    <span className="text-sm text-slate-400 mr-2 self-center">Deck:</span>
+                    <span className="text-sm text-[var(--color-text-secondary)] mr-2 self-center">Deck:</span>
                     {DECK_FILTERS.map((deck) => (
                         <Button
                             key={deck.id || 'all'}
@@ -122,7 +122,7 @@ export default function BrowseVocabulary() {
 
                 {/* CEFR Level Filter */}
                 <div className="flex gap-2 flex-wrap">
-                    <span className="text-sm text-slate-400 mr-2 self-center">CEFR:</span>
+                    <span className="text-sm text-[var(--color-text-secondary)] mr-2 self-center">CEFR:</span>
                     <Button
                         variant={selectedCefr === null ? 'default' : 'outline'}
                         size="sm"
@@ -163,24 +163,24 @@ export default function BrowseVocabulary() {
                                             <div className="flex-1 min-w-0">
                                                 {/* Word & CEFR */}
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <h3 className="text-lg font-bold text-slate-100 truncate">
+                                                    <h3 className="text-lg font-bold text-[var(--color-text-primary)] truncate">
                                                         {vocab.word}
                                                     </h3>
                                                     {vocab.cefr && (
-                                                        <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${CEFR_COLORS[vocab.cefr] || 'bg-slate-500'}`}>
+                                                        <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${CEFR_COLORS[vocab.cefr] || 'bg-primary/50'}`}>
                                                             {vocab.cefr}
                                                         </span>
                                                     )}
                                                 </div>
 
                                                 {/* Type & IPA */}
-                                                <div className="flex items-center gap-2 text-sm text-slate-400 mb-2">
+                                                <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] mb-2">
                                                     {vocab.type && <span className="italic">{vocab.type}</span>}
                                                     {vocab.ipaUs && <span>/{vocab.ipaUs}/</span>}
                                                 </div>
 
                                                 {/* Definition */}
-                                                <p className="text-sm text-slate-300 line-clamp-2">
+                                                <p className="text-sm text-[var(--color-text-secondary)] line-clamp-2">
                                                     {vocab.defTh || vocab.defEn || 'No definition'}
                                                 </p>
                                             </div>
@@ -223,9 +223,9 @@ export default function BrowseVocabulary() {
                 {/* Empty State */}
                 {!isLoading && vocabulary.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <BookOpen className="size-16 text-slate-600 mb-4" />
-                        <h3 className="text-xl font-semibold text-slate-300 mb-2">No vocabulary found</h3>
-                        <p className="text-slate-400">Try a different search or filter</p>
+                        <BookOpen className="size-16 text-[var(--color-text-muted)] mb-4" />
+                        <h3 className="text-xl font-semibold text-[var(--color-text-secondary)] mb-2">No vocabulary found</h3>
+                        <p className="text-[var(--color-text-muted)]">Try a different search or filter</p>
                     </div>
                 )}
 

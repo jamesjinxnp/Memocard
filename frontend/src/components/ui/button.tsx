@@ -11,12 +11,12 @@ const buttonVariants = cva(
             variant: {
                 default: "bg-gradient-to-br from-primary to-secondary text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5",
                 destructive: "bg-red-500 text-white shadow-sm hover:bg-red-600",
-                outline: "border border-slate-600 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white",
-                secondary: "bg-slate-700 text-slate-100 shadow-sm hover:bg-slate-600",
-                ghost: "text-slate-300 hover:bg-slate-800 hover:text-white",
+                outline: "border border-[var(--color-border-default)] bg-transparent text-[var(--color-text-secondary)] hover:bg-primary/10 hover:text-[var(--color-text-primary)]",
+                secondary: "bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] shadow-sm hover:brightness-110",
+                ghost: "text-[var(--color-text-secondary)] hover:bg-primary/10 hover:text-[var(--color-text-primary)]",
                 link: "text-primary underline-offset-4 hover:underline",
                 success: "bg-gradient-to-br from-emerald-500 to-green-400 text-white shadow-lg hover:shadow-xl",
-                warning: "bg-gradient-to-br from-amber-400 to-orange-400 text-slate-900 shadow-lg hover:shadow-xl",
+                warning: "bg-gradient-to-br from-amber-400 to-orange-400 text-black shadow-lg hover:shadow-xl",
             },
             size: {
                 default: "h-10 px-4 py-2",

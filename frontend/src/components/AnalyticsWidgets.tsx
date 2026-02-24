@@ -97,13 +97,13 @@ function StabilityBar({ stability }: { stability: number }) {
 
     return (
         <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+            <div className="flex-1 h-2 bg-[var(--color-bg-elevated)] rounded-full overflow-hidden">
                 <div
                     className={`h-full ${getColor(stability)} transition-all duration-300`}
                     style={{ width: `${stability}%` }}
                 />
             </div>
-            <span className="text-xs text-slate-400 w-8 text-right">{stability}%</span>
+            <span className="text-xs text-[var(--color-text-secondary)] w-8 text-right">{stability}%</span>
         </div>
     );
 }
@@ -114,15 +114,15 @@ function StabilityBar({ stability }: { stability: number }) {
 
 function WeakWordsWidget() {
     return (
-        <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 h-full">
+        <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-2xl p-5 h-full">
             {/* Header */}
             <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 rounded-lg bg-red-500/20">
                     <AlertTriangle className="size-5 text-red-400" />
                 </div>
                 <div>
-                    <h3 className="font-semibold text-slate-100">Weak Words</h3>
-                    <p className="text-xs text-slate-400">Words you struggle with most</p>
+                    <h3 className="font-semibold text-[var(--color-text-primary)]">Weak Words</h3>
+                    <p className="text-xs text-[var(--color-text-secondary)]">Words you struggle with most</p>
                 </div>
             </div>
 
@@ -131,18 +131,18 @@ function WeakWordsWidget() {
                 {MOCK_WEAK_WORDS.map((word, index) => (
                     <div
                         key={word.id}
-                        className="group p-3 rounded-xl bg-slate-700/30 hover:bg-slate-700/50 transition-colors"
+                        className="group p-3 rounded-xl bg-[var(--color-bg-elevated)]/30 hover:bg-primary/10 transition-colors"
                     >
                         <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-slate-500">#{index + 1}</span>
-                                <span className="font-medium text-slate-100">{word.word}</span>
+                                <span className="text-xs font-medium text-[var(--color-text-muted)]">#{index + 1}</span>
+                                <span className="font-medium text-[var(--color-text-primary)]">{word.word}</span>
                             </div>
                             <span className="text-xs text-red-400 font-medium">
                                 {word.failRate}% fail
                             </span>
                         </div>
-                        <p className="text-sm text-slate-400 mb-2">{word.meaning}</p>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-2">{word.meaning}</p>
                         <StabilityBar stability={word.stability} />
                     </div>
                 ))}
@@ -162,15 +162,15 @@ function WeakWordsWidget() {
 
 function ModePerformanceWidget() {
     return (
-        <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 h-full">
+        <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-2xl p-5 h-full">
             {/* Header */}
             <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 rounded-lg bg-purple-500/20">
                     <Target className="size-5 text-purple-400" />
                 </div>
                 <div>
-                    <h3 className="font-semibold text-slate-100">Mode Performance</h3>
-                    <p className="text-xs text-slate-400">Your accuracy across study modes</p>
+                    <h3 className="font-semibold text-[var(--color-text-primary)]">Mode Performance</h3>
+                    <p className="text-xs text-[var(--color-text-secondary)]">Your accuracy across study modes</p>
                 </div>
             </div>
 
@@ -210,12 +210,12 @@ function ModePerformanceWidget() {
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-slate-300">Strongest:</span>
+                    <span className="text-[var(--color-text-secondary)]">Strongest:</span>
                     <span className="text-green-400 font-medium">Reading (92%)</span>
                 </div>
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-red-500/10">
                     <div className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-slate-300">Weakest:</span>
+                    <span className="text-[var(--color-text-secondary)]">Weakest:</span>
                     <span className="text-red-400 font-medium">Speaking (45%)</span>
                 </div>
             </div>
@@ -235,15 +235,15 @@ function BestTimeWidget() {
     }, []);
 
     return (
-        <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 h-full">
+        <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-2xl p-5 h-full">
             {/* Header */}
             <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 rounded-lg bg-cyan-500/20">
                     <Clock className="size-5 text-cyan-400" />
                 </div>
                 <div>
-                    <h3 className="font-semibold text-slate-100">Best Time to Study</h3>
-                    <p className="text-xs text-slate-400">When you perform at your peak</p>
+                    <h3 className="font-semibold text-[var(--color-text-primary)]">Best Time to Study</h3>
+                    <p className="text-xs text-[var(--color-text-secondary)]">When you perform at your peak</p>
                 </div>
             </div>
 
@@ -301,7 +301,7 @@ function BestTimeWidget() {
             <div className="mt-3 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20">
                 <div className="flex items-center gap-2">
                     <TrendingUp className="size-4 text-cyan-400" />
-                    <span className="text-sm text-slate-300">
+                    <span className="text-sm text-[var(--color-text-secondary)]">
                         Your peak time is <span className="font-bold text-cyan-400">{peakHour.label}</span> with{' '}
                         <span className="font-bold text-cyan-400">{peakHour.accuracy}%</span> accuracy
                     </span>
@@ -318,7 +318,7 @@ function BestTimeWidget() {
 export default function AnalyticsWidgets() {
     return (
         <section className="space-y-4">
-            <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-[var(--color-text-primary)] flex items-center gap-2">
                 📊 Learning Analytics
             </h2>
 

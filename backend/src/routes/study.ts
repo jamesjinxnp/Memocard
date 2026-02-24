@@ -715,7 +715,7 @@ const study = new Elysia({ prefix: '/study' })
 
         const allReviews = await db
             .select({
-                date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch')`,
+                date: sql<string>`date(${reviewLogs.reviewedAt}, 'unixepoch', 'localtime')`,
                 count: sql<number>`count(*)`,
                 correct: sql<number>`sum(case when rating >= 3 then 1 else 0 end)`
             })
@@ -724,7 +724,7 @@ const study = new Elysia({ prefix: '/study' })
                 eq(reviewLogs.userId, user.userId),
                 sql`${reviewLogs.reviewedAt} >= ${Math.floor(startDate.getTime() / 1000)}`
             ))
-            .groupBy(sql`date(${reviewLogs.reviewedAt}, 'unixepoch')`);
+            .groupBy(sql`date(${reviewLogs.reviewedAt}, 'unixepoch', 'localtime')`);
 
         // Create a map for quick lookup
         const reviewsMap = new Map<string, { count: number; correct: number }>();

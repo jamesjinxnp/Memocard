@@ -9,7 +9,7 @@ import DeckPage from './pages/DeckPage';
 import Settings from './pages/Settings';
 import AnalyticsPage from './pages/AnalyticsPage';
 import LearningPath from './pages/LearningPath';
-import ReviewSession from './pages/ReviewSession';
+
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -95,14 +95,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/review/:deckId"
-            element={
-              <ProtectedRoute>
-                <ReviewSession />
-              </ProtectedRoute>
-            }
-          />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

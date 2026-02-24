@@ -7,7 +7,7 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Lock, Star, Check, BookOpen, Swords, Flag } from "lucide-react";
+import { Lock, Star, Check, BookOpen, Swords, Flag, Crown } from "lucide-react";
 
 interface NodeButtonProps {
     node: {
@@ -23,8 +23,6 @@ interface NodeButtonProps {
 }
 
 export const NodeButton = memo(function NodeButton({ node, status, stars, crowns, onClick }: NodeButtonProps) {
-    // Debug: Track re-renders (remove in production)
-    console.log('PathNode rendered', node.id);
 
     // 1. Determine Icon based on type & status
     const getIcon = () => {
@@ -40,7 +38,7 @@ export const NodeButton = memo(function NodeButton({ node, status, stars, crowns
     };
 
     // 2. Base styles
-    const baseStyles = "relative rounded-full flex items-center justify-center transition-all duration-300 shadow-lg group active:scale-90";
+    const baseStyles = "relative rounded-full flex items-center justify-center transition-all duration-300 shadow-lg group active:scale-90 z-10";
 
     // 3. Dynamic size based on type
     const sizeClasses = node.type === 'boss' || node.type === 'checkpoint'
@@ -49,20 +47,20 @@ export const NodeButton = memo(function NodeButton({ node, status, stars, crowns
 
     // 4. State styling
     const stateClasses = {
-        locked: "bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed hover:bg-slate-800",
-        available: "bg-primary border-primary-foreground text-primary-foreground hover:scale-110 hover:-translate-y-1 animate-pulse shadow-primary/40",
-        completed: "bg-green-500 border-green-600 text-white hover:scale-105 hover:bg-green-400 shadow-green-500/40",
+        locked: "bg-[var(--color-bg-elevated)]/50 border-[var(--color-border-default)]/60 text-[var(--color-text-muted)] cursor-not-allowed opacity-40",
+        available: "bg-primary border-primary/60 text-white hover:scale-110 hover:-translate-y-1 node-available-glow",
+        completed: "bg-accent-teal border-accent-teal-dark text-white hover:scale-105 hover:brightness-110 node-completed-glow",
     };
 
     // Crown display logic
     const renderCrowns = () => {
         if (crowns <= 0) return null;
         return (
-            <div className="absolute -top-2 -right-2 flex">
+            <div className="absolute -top-2 -right-2 flex items-center gap-0.5">
                 {Array.from({ length: Math.min(crowns, 3) }).map((_, i) => (
-                    <div key={i} className="text-xs">👑</div>
+                    <Crown key={i} className="size-3.5 text-accent-amber fill-accent-amber" />
                 ))}
-                {crowns > 3 && <span className="text-[10px] font-bold bg-amber-400 text-black px-1 rounded-full">+{crowns - 3}</span>}
+                {crowns > 3 && <span className="text-[10px] font-bold bg-accent-amber text-black px-1 rounded-full">+{crowns - 3}</span>}
             </div>
         );
     };
@@ -78,7 +76,7 @@ export const NodeButton = memo(function NodeButton({ node, status, stars, crowns
                         size={12}
                         className={cn(
                             "fill-current",
-                            i < stars ? "text-amber-400" : "text-slate-600"
+                            i < stars ? "text-accent-amber" : "text-[var(--color-text-muted)]"
                         )}
                     />
                 ))}
@@ -111,12 +109,12 @@ export const NodeButton = memo(function NodeButton({ node, status, stars, crowns
                         {renderStars()}
                     </button>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="flex flex-col items-center gap-1 bg-slate-900 border-slate-700">
-                    <p className="font-bold capitalize">{node.type} {node.order + 1}</p>
+                <TooltipContent side="top" className="flex flex-col items-center gap-1 bg-[var(--color-bg-surface)] border-[var(--color-border-default)]">
+                    <p className="font-bold font-display capitalize">{node.type} {node.order + 1}</p>
                     <p className="text-xs text-muted-foreground">{node.vocabCount} Words</p>
-                    {status === 'locked' && <p className="text-xs text-red-400 uppercase font-bold tracking-wider">Locked</p>}
-                    {status === 'available' && <p className="text-xs text-green-400 uppercase font-bold tracking-wider animate-pulse">Start Lesson</p>}
-                    {status === 'completed' && <p className="text-xs text-amber-400 uppercase font-bold tracking-wider">Review</p>}
+                    {status === 'locked' && <p className="text-xs text-accent-rose uppercase font-bold tracking-wider">Locked</p>}
+                    {status === 'available' && <p className="text-xs text-accent-teal uppercase font-bold tracking-wider animate-pulse">Start Lesson</p>}
+                    {status === 'completed' && <p className="text-xs text-accent-amber uppercase font-bold tracking-wider">Review</p>}
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>

@@ -20,7 +20,7 @@ export function PathHeader({ title }: PathHeaderProps) {
     const navigate = useNavigate();
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+        <header className="sticky top-0 z-50 w-full border-b border-[var(--color-border-default)] bg-deep/90 backdrop-blur-md">
             <div className="container flex h-14 max-w-screen-2xl items-center justify-between px-4">
                 <div className="flex items-center gap-2">
                     <Button
@@ -32,7 +32,7 @@ export function PathHeader({ title }: PathHeaderProps) {
                         <ChevronLeft className="size-4" />
                         <span className="sr-only">Back</span>
                     </Button>
-                    <span className="font-bold hidden sm:inline-block">
+                    <span className="font-bold font-display text-gradient hidden sm:inline-block">
                         {title}
                     </span>
                 </div>
@@ -55,7 +55,7 @@ export function PathHeader({ title }: PathHeaderProps) {
                                 <span className="sr-only">Settings</span>
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px] bg-slate-950 border-slate-800 shadow-2xl text-slate-50">
+                        <DialogContent className="sm:max-w-[425px] bg-[var(--color-bg-surface)] border-[var(--color-border-default)] shadow-2xl">
                             <DialogHeader>
                                 <DialogTitle>Settings & Preferences</DialogTitle>
                                 <DialogDescription>
