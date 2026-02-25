@@ -13,6 +13,9 @@ import {
     ClozeMode,
     SpellingBeeMode,
     AudioChoiceMode,
+    ModeProgressRail,
+    getModeAccent,
+    getModeIcon,
 } from '@/components/study-modes';
 import { useMultiModeSession, useStudyReview, useDistractors } from '@/hooks/study';
 import type { StudyModeType } from '@/types/schema';
@@ -361,17 +364,24 @@ export default function Study() {
         }
     };
 
+    const modeAccent = getModeAccent(currentMode);
+    const modeIcon = getModeIcon(currentMode);
+
     return (
-        <div className="min-h-screen min-h-dvh w-full flex flex-col bg-deep">
-            {/* Header */}
-            <header className="sticky top-0 z-50 w-full border-b border-[var(--color-border-default)] bg-deep/95 backdrop-blur">
+        <div className="min-h-screen min-h-dvh w-full flex flex-col bg-deep relative">
+            {/* Ambient background orbs */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                <div className={`absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-br ${modeAccent.gradient} opacity-[0.04] blur-3xl transition-all duration-1000`} />
+                <div className={`absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-gradient-to-br ${modeAccent.gradient} opacity-[0.03] blur-3xl transition-all duration-1000`} />
+            </div>
+
+            {/* Header — Glassmorphism */}
+            <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[var(--color-bg-deep)]/80 backdrop-blur-2xl">
                 <div className="max-w-6xl mx-auto flex h-14 items-center justify-between px-4">
                     <Button variant="ghost" size="sm" onClick={() => {
                         if (isNodeMode && nodeSessionData?.deckId) {
-                            // Navigate back to learning path using deckId from session
                             navigate(`/path/${nodeSessionData.deckId}`);
                         } else if (isPathContext && deckId) {
-                            // Review Time! from path → back to learning path
                             navigate(`/path/${deckId}`);
                         } else if (deckId) {
                             navigate(`/deck/${deckId}`);
@@ -383,9 +393,10 @@ export default function Study() {
                         Back
                     </Button>
                     <div className="text-center">
-                        <h1 className="font-semibold font-display text-[var(--color-text-primary)]">
+                        <h1 className="font-semibold font-display text-[var(--color-text-primary)] flex items-center gap-1.5 justify-center">
+                            <span>{modeIcon}</span>
                             {MODE_NAMES[currentMode] || 'Study'}
-                            {isRetrying && <span className="text-amber-400 ml-2">(Retry)</span>}
+                            {isRetrying && <span className="text-amber-400 text-sm">(Retry)</span>}
                         </h1>
                         {isMultiMode && currentCardState && (
                             <div className="text-xs text-[var(--color-text-secondary)]">
@@ -394,7 +405,7 @@ export default function Study() {
                             </div>
                         )}
                     </div>
-                    <span className="text-sm text-[var(--color-text-secondary)]">
+                    <span className="text-sm font-medium text-[var(--color-text-secondary)]">
                         {completedCount} / {totalCards}
                     </span>
                 </div>
@@ -446,52 +457,25 @@ export default function Study() {
                 </div>
             )}
 
-            {/* Simple Progress Bar */}
-            <div className="h-1 bg-[var(--color-bg-surface)]">
+            {/* Gradient Progress Bar — Mode Accent */}
+            <div className="h-1.5 bg-white/5">
                 <div
-                    className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-300"
+                    className={`h-full bg-gradient-to-r ${modeAccent.gradient} transition-all duration-500 ease-out`}
                     style={{ width: `${progressPercent}%` }}
                 />
             </div>
 
-            {/* Mode indicators for multi-mode */}
+            {/* Mode Progress Rail */}
             {isMultiMode && currentCardState && (
-                <div className="flex justify-center gap-2 py-3 bg-[var(--color-bg-elevated)]/50">
-                    {currentCardState.modeQueue.map((m, i) => {
-                        const isCompleted = i < currentCardState.currentModeIndex;
-                        const isCurrent = i === currentCardState.currentModeIndex && currentCardState.retryQueue.length === 0;
-                        const isRetryMode = currentCardState.retryQueue.includes(m);
-
-                        return (
-                            <div
-                                key={i}
-                                className={`w-2 h-2 rounded-full transition-all ${isCompleted ? 'bg-green-500' :
-                                    isCurrent ? 'bg-primary scale-125' :
-                                        isRetryMode ? 'bg-amber-500' :
-                                            'bg-[var(--color-bg-elevated)]'
-                                    }`}
-                                title={MODE_NAMES[m]}
-                            />
-                        );
-                    })}
-                    {/* Retry queue indicators */}
-                    {currentCardState.retryQueue.length > 0 && (
-                        <>
-                            <div className="w-px h-2 bg-[var(--color-text-muted)]" />
-                            {currentCardState.retryQueue.map((m, i) => (
-                                <div
-                                    key={`retry-${i}`}
-                                    className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-amber-400 scale-125' : 'bg-amber-600'}`}
-                                    title={`Retry: ${MODE_NAMES[m]}`}
-                                />
-                            ))}
-                        </>
-                    )}
-                </div>
+                <ModeProgressRail
+                    modeQueue={currentCardState.modeQueue}
+                    currentModeIndex={currentCardState.currentModeIndex}
+                    retryQueue={currentCardState.retryQueue}
+                />
             )}
 
             {/* Study Mode Content */}
-            <main className="flex-1 flex items-center justify-center p-4 md:p-6">
+            <main className="flex-1 flex items-center justify-center p-4 md:p-6 relative z-10">
                 {renderMode()}
             </main>
         </div>

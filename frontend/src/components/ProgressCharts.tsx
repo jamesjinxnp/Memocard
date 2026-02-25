@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { studyApi } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -79,6 +80,7 @@ function generateHeatmapData(dailyStats: DailyStat[] = []) {
 }
 
 export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
+    const navigate = useNavigate();
     const { data, isLoading } = useQuery<ProgressData>({
         queryKey: ['progress-stats'],
         queryFn: async () => {
@@ -331,7 +333,10 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                 </Card>
 
                 {/* Time Due Card - 1 column */}
-                <Card className="overflow-hidden flex flex-col">
+                <Card
+                    className="overflow-hidden flex flex-col cursor-pointer hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-200 group/review"
+                    onClick={() => navigate('/upcoming')}
+                >
                     <CardHeader className="pb-2 pt-3 px-4">
                         <CardTitle className="text-sm flex items-center gap-2">
                             <div className="p-1.5 rounded-lg bg-purple-500/20">
@@ -350,7 +355,7 @@ export default function ProgressCharts({ todayStats }: ProgressChartsProps) {
                                 }`}>
                                 {countdown}
                             </div>
-                            <div className="text-xs text-[var(--color-text-muted)] mt-2">
+                            <div className="text-xs text-[var(--color-text-muted)] mt-2 group-hover/review:text-purple-400/70 transition-colors">
                                 {countdown === 'Now!'
                                     ? 'Cards ready to review!'
                                     : countdown === 'No reviews due'

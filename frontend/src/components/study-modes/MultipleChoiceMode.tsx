@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { speakWord } from '../../services/audio';
+import RatingBar from './RatingBar';
 
 interface Vocabulary {
   id: number;
@@ -11,7 +12,7 @@ interface Vocabulary {
 
 interface MultipleChoiceModeProps {
   vocabulary: Vocabulary;
-  distractors: Vocabulary[]; // 3 wrong options
+  distractors: Vocabulary[];
   onRate: (rating: number) => void;
 }
 
@@ -25,7 +26,6 @@ export default function MultipleChoiceMode({
   const [startTime, setStartTime] = useState<number>(Date.now());
   const [responseTime, setResponseTime] = useState<number>(0);
 
-  // Shuffle options
   const options = useMemo(() => {
     const allOptions = [vocabulary, ...distractors.slice(0, 3)];
     return allOptions.sort(() => Math.random() - 0.5);
@@ -40,12 +40,10 @@ export default function MultipleChoiceMode({
 
   const handleSelect = (id: number) => {
     if (showResult) return;
-
     const elapsed = (Date.now() - startTime) / 1000;
     setSelectedId(id);
     setShowResult(true);
     setResponseTime(elapsed);
-
     if (id === vocabulary.id) {
       speakWord(vocabulary.word);
     }
@@ -53,13 +51,12 @@ export default function MultipleChoiceMode({
 
   const isCorrect = selectedId === vocabulary.id;
 
-  // Time-based rating: Again (wrong or >30s), Hard (15-30s), Good (5-15s), Easy (<5s)
   const getSuggestedRating = () => {
-    if (!isCorrect) return 1; // Again - wrong answer
-    if (responseTime > 30) return 1; // Again - took too long
-    if (responseTime > 15) return 2; // Hard
-    if (responseTime > 5) return 3; // Good
-    return 4; // Easy - fast response
+    if (!isCorrect) return 1;
+    if (responseTime > 30) return 1;
+    if (responseTime > 15) return 2;
+    if (responseTime > 5) return 3;
+    return 4;
   };
 
   // Live timer
@@ -73,57 +70,89 @@ export default function MultipleChoiceMode({
   }, [startTime, showResult]);
 
   const getTimerColor = () => {
-    if (liveTime < 5) return '#22c55e'; // Easy - green
-    if (liveTime < 15) return '#eab308'; // Good - yellow
-    if (liveTime < 30) return '#f97316'; // Hard - orange
-    return '#ef4444'; // Again - red
+    if (liveTime < 5) return 'text-emerald-400';
+    if (liveTime < 15) return 'text-yellow-400';
+    if (liveTime < 30) return 'text-orange-400';
+    return 'text-red-400';
   };
 
-  const getOptionClass = (id: number) => {
-    if (!showResult) return '';
-    if (id === vocabulary.id) return 'correct';
-    if (id === selectedId) return 'incorrect';
-    return 'disabled';
+  const getTimerBarColor = () => {
+    if (liveTime < 5) return 'bg-emerald-500';
+    if (liveTime < 15) return 'bg-yellow-500';
+    if (liveTime < 30) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
+  const getOptionClasses = (id: number) => {
+    const base = `w-full p-4 rounded-2xl text-left transition-all duration-200
+      bg-[var(--color-bg-surface)]/40 backdrop-blur-xl border`;
+
+    if (!showResult) {
+      return `${base} border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/5 active:scale-[0.98] cursor-pointer`;
+    }
+    if (id === vocabulary.id) {
+      return `${base} border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.15)]`;
+    }
+    if (id === selectedId) {
+      return `${base} border-red-500/50 bg-red-500/10 shadow-[0_0_20px_rgba(239,68,68,0.15)]`;
+    }
+    return `${base} border-white/5 opacity-30`;
   };
 
   return (
-    <div className="multiple-choice-mode">
+    <div className="flex flex-col items-center gap-5 w-full max-w-lg mx-auto px-2">
       {/* Live Timer Bar */}
       {!showResult && (
-        <div className="live-timer-container">
-          <div className="live-timer-track">
-            <div className="live-timer-bar" style={{
-              width: `${Math.min((liveTime / 30) * 100, 100)}%`,
-              background: getTimerColor()
-            }} />
+        <div className="w-full flex items-center gap-3 bg-[var(--color-bg-surface)]/40 backdrop-blur-xl rounded-2xl px-4 py-2.5 border border-white/5">
+          <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-100 ${getTimerBarColor()}`}
+              style={{ width: `${Math.min((liveTime / 30) * 100, 100)}%` }}
+            />
           </div>
-          <span className="live-timer-text" style={{ color: getTimerColor() }}>
+          <span className={`text-sm font-semibold tabular-nums min-w-[40px] text-right ${getTimerColor()}`}>
             {Math.floor(liveTime)}s
           </span>
         </div>
       )}
 
-      {/* Question Card */}
-      <div className="question-card">
-        <h1 className="word">{vocabulary.word}</h1>
+      {/* Question Card — Glassmorphism with emerald accent */}
+      <div className="w-full rounded-3xl p-5 md:p-6 text-center
+        bg-[var(--color-bg-surface)]/60 backdrop-blur-2xl
+        border border-emerald-500/20
+        shadow-[0_0_40px_rgba(16,185,129,0.15)]">
+
+        <h1 className="text-3xl sm:text-4xl font-bold font-display mb-2 text-[var(--color-text-primary)]">
+          {vocabulary.word}
+        </h1>
+
         {vocabulary.type && (
-          <span className="type-badge">{vocabulary.type}</span>
+          <span className="inline-block px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-sm font-medium text-emerald-400 mb-2">
+            {vocabulary.type}
+          </span>
         )}
-        <p className="instruction">เลือกความหมายที่ถูกต้อง</p>
+
+        <p className="text-sm text-[var(--color-text-muted)]">
+          เลือกความหมายที่ถูกต้อง
+        </p>
       </div>
 
-      {/* Options */}
-      <div className="options">
+      {/* Options — Glass cards */}
+      <div className="w-full flex flex-col gap-2.5">
         {options.map((option) => (
           <button
             key={option.id}
-            className={`option ${getOptionClass(option.id)}`}
+            className={getOptionClasses(option.id)}
             onClick={() => handleSelect(option.id)}
             disabled={showResult}
           >
-            <span className="def-th">{option.defTh}</span>
+            <span className="block text-base font-medium text-[var(--color-text-primary)]">
+              {option.defTh}
+            </span>
             {option.defEn && (
-              <span className="def-en">{option.defEn}</span>
+              <span className="block text-sm text-[var(--color-text-secondary)] mt-0.5">
+                {option.defEn}
+              </span>
             )}
           </button>
         ))}
@@ -131,234 +160,31 @@ export default function MultipleChoiceMode({
 
       {/* Result & Rating */}
       {showResult && (
-        <div className={`result ${isCorrect ? 'correct' : 'incorrect'}`}>
-          <p className="result-text">
+        <div className={`w-full rounded-3xl p-5 text-center
+          bg-[var(--color-bg-surface)]/60 backdrop-blur-2xl border
+          ${isCorrect
+            ? 'border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.15)]'
+            : 'border-red-500/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]'
+          }
+          animate-in fade-in slide-in-from-bottom-2 duration-300`}
+        >
+          <p className={`text-lg font-semibold mb-1 ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
             {isCorrect ? '✅ ถูกต้อง!' : '❌ ไม่ถูกต้อง'}
           </p>
 
-          <p className="time-display">⏱️ {responseTime.toFixed(1)}s</p>
+          <p className="text-xs text-[var(--color-text-muted)] mb-3">
+            ⏱️ {responseTime.toFixed(1)}s · แนะนำ: {['', 'Again', 'Hard', 'Good', 'Easy'][getSuggestedRating()]}
+          </p>
 
           {!isCorrect && (
-            <p className="correct-answer">
-              คำตอบที่ถูก: {vocabulary.defTh}
+            <p className="text-sm text-[var(--color-text-secondary)] mb-3">
+              คำตอบที่ถูก: <span className="text-emerald-400 font-medium">{vocabulary.defTh}</span>
             </p>
           )}
 
-          <div className="rating-buttons">
-            <button
-              className={`rating-btn again ${getSuggestedRating() === 1 ? 'suggested' : ''}`}
-              onClick={() => onRate(1)}
-            >
-              Again
-            </button>
-            <button
-              className={`rating-btn hard ${getSuggestedRating() === 2 ? 'suggested' : ''}`}
-              onClick={() => onRate(2)}
-            >
-              Hard
-            </button>
-            <button
-              className={`rating-btn good ${getSuggestedRating() === 3 ? 'suggested' : ''}`}
-              onClick={() => onRate(3)}
-            >
-              Good
-            </button>
-            <button
-              className={`rating-btn easy ${getSuggestedRating() === 4 ? 'suggested' : ''}`}
-              onClick={() => onRate(4)}
-            >
-              Easy
-            </button>
-          </div>
+          <RatingBar onRate={onRate} />
         </div>
       )}
-
-      <style>{`
-        .multiple-choice-mode {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 1.5rem;
-          padding: 2rem;
-          max-width: 500px;
-          margin: 0 auto;
-        }
-
-        .live-timer-container {
-          width: 100%;
-          background: #1e293b;
-          border-radius: 12px;
-          padding: 0.5rem 1rem;
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .live-timer-track {
-          flex: 1;
-          height: 8px;
-          background: #334155;
-          border-radius: 4px;
-          overflow: hidden;
-        }
-
-        .live-timer-bar {
-          height: 100%;
-          border-radius: 4px;
-          transition: width 0.1s linear, background 0.3s;
-        }
-
-        .live-timer-text {
-          font-size: 0.9rem;
-          font-weight: 600;
-          white-space: nowrap;
-          min-width: 50px;
-          text-align: right;
-        }
-
-        .question-card {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 2rem;
-          border-radius: 16px;
-          text-align: center;
-          width: 100%;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-
-        .word {
-          font-size: 2.5rem;
-          font-weight: 700;
-          margin-bottom: 0.5rem;
-        }
-
-        .type-badge {
-          display: inline-block;
-          background: rgba(255,255,255,0.2);
-          padding: 0.25rem 0.75rem;
-          border-radius: 20px;
-          font-size: 0.85rem;
-          margin-bottom: 1rem;
-        }
-
-        .instruction {
-          font-size: 0.95rem;
-          opacity: 0.9;
-        }
-
-        .options {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-
-        .option {
-          width: 100%;
-          padding: 1rem;
-          background: white;
-          border: 2px solid #e2e8f0;
-          border-radius: 12px;
-          text-align: left;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .option:hover:not(:disabled) {
-          border-color: #667eea;
-          transform: translateX(4px);
-        }
-
-        .option.correct {
-          background: #dcfce7;
-          border-color: #22c55e;
-        }
-
-        .option.incorrect {
-          background: #fee2e2;
-          border-color: #ef4444;
-        }
-
-        .option.disabled {
-          opacity: 0.5;
-        }
-
-        .option .def-th {
-          display: block;
-          font-size: 1.1rem;
-          font-weight: 500;
-          color: #1e293b;
-        }
-
-        .option .def-en {
-          display: block;
-          font-size: 0.9rem;
-          color: #64748b;
-          margin-top: 0.25rem;
-        }
-
-        .result {
-          text-align: center;
-          padding: 1.5rem;
-          border-radius: 12px;
-          width: 100%;
-        }
-
-        .result.correct {
-          background: #dcfce7;
-        }
-
-        .result.incorrect {
-          background: #fee2e2;
-        }
-
-        .result-text {
-          font-size: 1.25rem;
-          font-weight: 600;
-          margin-bottom: 0.5rem;
-        }
-
-        .correct-answer {
-          font-size: 0.95rem;
-          color: #64748b;
-          margin-bottom: 1rem;
-        }
-
-        .rating-buttons {
-          display: flex;
-          gap: 0.75rem;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-
-        .rating-btn {
-          padding: 0.75rem 1.5rem;
-          min-height: 48px;
-          min-width: 72px;
-          border: none;
-          border-radius: 8px;
-          font-weight: 600;
-          font-size: 1rem;
-          cursor: pointer;
-          transition: transform 0.2s;
-          color: white;
-        }
-
-        .rating-btn:hover {
-          transform: translateY(-2px);
-        }
-
-        .rating-btn:active {
-          transform: scale(0.95);
-        }
-
-        .rating-btn.again { background: #ef4444; }
-        .rating-btn.hard { background: #f97316; }
-        .rating-btn.good { background: #22c55e; }
-        .rating-btn.easy { background: #3b82f6; }
-        .rating-btn.suggested { transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
-        .time-display { font-size: 0.9rem; color: #64748b; margin-bottom: 0.5rem; }
-      `}</style>
     </div>
   );
 }

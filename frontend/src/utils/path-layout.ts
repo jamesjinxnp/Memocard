@@ -1,17 +1,17 @@
 /**
- * S-Curve Path Layout
+ * S-Curve Path Layout — Predefined Pattern
  * 
- * Nodes flow along a smooth continuous sine wave:
+ * Repeating 6-node pattern with flat spots at peaks:
  * 
- *       ●           
- *         ●         → smooth curve right
- *           ●       
- *         ●         
- *       ●           → center
- *     ●             
- *   ●               → smooth curve left
- *     ●             
- *       ●           → center (repeat)
+ *   ●                 ← left
+ *     ●               → center
+ *       ●             → right
+ *       ●             → right (flat)
+ *     ●               → center
+ *   ●                 ← left
+ *   ●                 ← left (flat, repeat)
+ *     ●               → center
+ *       ●             → right
  */
 
 export interface PathPosition {
@@ -22,15 +22,17 @@ export interface PathPosition {
 const VERTICAL_SPACING = 80;  // px between nodes
 const CENTER_X = 50;          // center of container
 const AMPLITUDE = 18;         // how far left/right from center (%)
-const WAVE_PERIOD = 6;        // nodes per full sine wave cycle
+
+// 6-step repeating pattern: left → center → right → right → center → left
+const OFFSET_PATTERN = [-1, 0, 1, 1, 0, -1];
 
 /**
- * Returns smooth S-curve position using sine wave.
+ * Returns S-curve position using predefined pattern.
+ * Creates flat spots (two consecutive nodes) at left and right peaks.
  */
 export function getDuolingoPosition(index: number, _total: number): PathPosition {
-    // Sine wave: smooth continuous curve
-    const angle = (index / WAVE_PERIOD) * Math.PI * 2;
-    const offset = Math.sin(angle) * AMPLITUDE;
+    const patternIndex = index % OFFSET_PATTERN.length;
+    const offset = OFFSET_PATTERN[patternIndex] * AMPLITUDE;
 
     return {
         x: CENTER_X + offset,

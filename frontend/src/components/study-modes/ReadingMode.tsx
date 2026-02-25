@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { speakWord } from '../../services/audio';
-import { Button } from '@/components/ui/button';
 import { Volume2 } from 'lucide-react';
+import RatingBar from './RatingBar';
 
 interface Vocabulary {
   id: number;
@@ -38,24 +38,17 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
   const [slideState, setSlideState] = useState<SlideState>('center');
   const [showEnglish, setShowEnglish] = useState(false);
 
-  // Use a key to force complete re-render of card content
   const [cardKey, setCardKey] = useState(0);
   const [displayVocab, setDisplayVocab] = useState<Vocabulary>(vocabulary);
   const isTransitioning = useRef(false);
 
-  // Ref to always have access to the latest vocabulary prop
   const latestVocabRef = useRef<Vocabulary>(vocabulary);
   useEffect(() => {
     latestVocabRef.current = vocabulary;
   }, [vocabulary]);
 
-  // Store pending vocabulary during transition
   useEffect(() => {
-    if (isTransitioning.current) {
-      // We're in a transition, the new vocab will be picked up after animation
-      return;
-    }
-    // Not transitioning, update immediately
+    if (isTransitioning.current) return;
     setDisplayVocab(vocabulary);
   }, [vocabulary]);
 
@@ -78,29 +71,22 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
 
   const handleRate = (rating: number) => {
     isTransitioning.current = true;
-
-    // 1. Flip กลับ + slide exit left พร้อมกัน
     setIsFlipped(false);
     setSlideState('exit-left');
-    setShowEnglish(false); // Reset for next card
-    onRate(rating); // This will trigger vocabulary prop change
+    setShowEnglish(false);
+    onRate(rating);
 
-    // 2. หลัง exit animation เสร็จ -> โหลดการ์ดใหม่ที่ตำแหน่งขวา
     setTimeout(() => {
-      // Use the ref to get the LATEST vocabulary (updated by parent's onRate)
       setDisplayVocab(latestVocabRef.current);
-      setCardKey(k => k + 1); // Force re-render
+      setCardKey(k => k + 1);
       setSlideState('enter-right');
-
-      // 3. เลื่อนการ์ดใหม่จากขวาเข้ามาตรงกลาง (รอสักครู่ให้ position ที่ขวา render ก่อน)
       setTimeout(() => {
         setSlideState('center');
         isTransitioning.current = false;
-      }, 50); // เพิ่ม delay เล็กน้อยให้เห็น position ขวา
+      }, 50);
     }, 350);
   };
 
-  // Calculate IPA from displayVocab using useMemo
   const ipa = useMemo(() => formatIPA(displayVocab.ipaUs), [displayVocab.ipaUs]);
 
   const getCardStyle = () => {
@@ -130,7 +116,7 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
 
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-lg mx-auto overflow-hidden px-2">
-      {/* Flashcard Wrapper - More mobile-friendly aspect ratio */}
+      {/* Flashcard Wrapper */}
       <div
         className="w-full aspect-[3/2] cursor-pointer"
         style={getCardStyle()}
@@ -148,70 +134,93 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
               transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
             }}
           >
-            {/* Front - Word + Audio + Image + Example */}
+            {/* Front — Glassmorphism with purple accent */}
             <div
-              className="absolute inset-0 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-violet-600 to-purple-700 shadow-xl"
+              className="absolute inset-0 rounded-3xl p-4 md:p-6 flex flex-col items-center justify-center text-white
+                bg-[var(--color-bg-surface)]/60 backdrop-blur-2xl
+                border border-purple-500/20
+                shadow-[0_0_40px_rgba(147,51,234,0.15)]"
               style={{ backfaceVisibility: 'hidden' }}
             >
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3 text-center">
+              {/* Gradient accent strip */}
+              <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-gradient-to-r from-purple-600 to-violet-700" />
+
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold font-display mb-2 text-center text-[var(--color-text-primary)]">
                 {displayVocab.word}
               </h1>
 
+              {ipa && (
+                <p className="text-sm md:text-base opacity-60 font-serif mb-3 text-[var(--color-text-secondary)]">
+                  /{ipa}/
+                </p>
+              )}
+
               <button
-                className="p-3 rounded-full bg-white/20 hover:bg-white/30 transition-colors active:scale-95 mb-3"
+                className="p-3 rounded-2xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/20
+                  transition-all duration-200 active:scale-95 mb-3"
                 onClick={(e) => { e.stopPropagation(); handleSpeak(); }}
                 disabled={isPlaying}
               >
-                <Volume2 className={`size-6 ${isPlaying ? 'animate-pulse' : ''}`} />
+                <Volume2 className={`size-5 text-purple-400 ${isPlaying ? 'animate-pulse' : ''}`} />
               </button>
 
               {displayVocab.imageUrl && (
                 <img
                   src={displayVocab.imageUrl}
                   alt={displayVocab.word}
-                  className="max-w-24 md:max-w-32 max-h-20 md:max-h-24 rounded-lg mb-3 object-cover"
+                  className="max-w-24 md:max-w-32 max-h-20 md:max-h-24 rounded-xl mb-3 object-cover border border-white/10"
                 />
               )}
 
               {displayVocab.example && (
-                <p className="text-center text-xs md:text-sm italic opacity-85 px-2">
+                <p className="text-center text-xs md:text-sm italic opacity-60 px-2 text-[var(--color-text-secondary)]">
                   <span className="font-semibold not-italic">Example: </span>
                   {displayVocab.example}
                 </p>
               )}
 
-              {/* Only show hint when not flipped */}
-              <p className="absolute bottom-3 text-xs md:text-sm opacity-70">แตะเพื่อดูคำตอบ</p>
+              <p className="absolute bottom-3 text-xs md:text-sm opacity-40 text-[var(--color-text-muted)]">
+                ✧ แตะเพื่อดูคำตอบ ✧
+              </p>
             </div>
 
-            {/* Back - Word + Thai + English toggle + IPA + Part of Speech */}
+            {/* Back — Glassmorphism with emerald accent */}
             <div
-              className="absolute inset-0 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center text-white bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl overflow-y-auto"
+              className="absolute inset-0 rounded-3xl p-4 md:p-6 flex flex-col items-center justify-center text-white
+                bg-[var(--color-bg-surface)]/60 backdrop-blur-2xl
+                border border-emerald-500/20
+                shadow-[0_0_40px_rgba(16,185,129,0.15)]
+                overflow-y-auto"
               style={{
                 backfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
               }}
             >
-              <h2 className="text-xl md:text-2xl font-bold mb-2">{displayVocab.word}</h2>
+              {/* Gradient accent strip */}
+              <div className="absolute top-0 left-0 right-0 h-1 rounded-t-3xl bg-gradient-to-r from-emerald-500 to-teal-600" />
 
-              {/* Thai Translation - Main Focus */}
+              <h2 className="text-xl md:text-2xl font-bold font-display mb-2 text-[var(--color-text-primary)]">
+                {displayVocab.word}
+              </h2>
+
+              {/* Thai Translation — Main Focus */}
               {displayVocab.defTh && (
-                <p className="text-center text-2xl md:text-3xl font-bold text-white mb-3">
+                <p className="text-center text-2xl md:text-3xl font-bold mb-3 bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
                   {displayVocab.defTh}
                 </p>
               )}
 
-              {/* English Definition - Hidden by default with toggle */}
+              {/* English Definition — Hidden by default */}
               {displayVocab.defEn && (
                 <div className="w-full text-center mb-3">
                   {showEnglish ? (
-                    <p className="text-center text-sm md:text-base opacity-90">
+                    <p className="text-center text-sm md:text-base opacity-70 text-[var(--color-text-secondary)]">
                       {displayVocab.defEn}
                     </p>
                   ) : (
                     <button
                       onClick={(e) => { e.stopPropagation(); setShowEnglish(true); }}
-                      className="text-xs text-white/60 hover:text-white/90 transition-colors underline underline-offset-2"
+                      className="text-xs text-emerald-400/60 hover:text-emerald-400/90 transition-colors underline underline-offset-2"
                     >
                       Show English Meaning
                     </button>
@@ -221,12 +230,14 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
 
               {/* IPA Pronunciation */}
               {ipa && (
-                <p className="text-base md:text-lg opacity-90 font-serif mb-2">/{ipa}/</p>
+                <p className="text-base md:text-lg opacity-60 font-serif mb-2 text-[var(--color-text-secondary)]">
+                  /{ipa}/
+                </p>
               )}
 
               {/* Part of Speech Badge */}
               {displayVocab.type && (
-                <span className="px-3 py-1 rounded-full bg-white/20 text-sm font-medium">
+                <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-sm font-medium text-emerald-400">
                   {displayVocab.type}
                 </span>
               )}
@@ -235,42 +246,9 @@ export default function ReadingMode({ vocabulary, onRate, showSchedule }: Readin
         </div>
       </div>
 
-      {/* Rating Buttons - Touch-friendly sizes */}
+      {/* Rating Buttons — Shared Component */}
       {isFlipped && slideState === 'center' && (
-        <div className="flex flex-wrap gap-3 md:gap-4 justify-center w-full">
-          <Button
-            variant="destructive"
-            onClick={() => handleRate(1)}
-            className="flex flex-col min-h-12 min-w-[72px] h-auto py-3 px-5 bg-red-500 hover:bg-red-600 active:scale-95 transition-transform text-base"
-          >
-            <span className="font-semibold">Again</span>
-            {showSchedule && <span className="text-xs opacity-80">{showSchedule.again}d</span>}
-          </Button>
-
-          <Button
-            onClick={() => handleRate(2)}
-            className="flex flex-col min-h-12 min-w-[72px] h-auto py-3 px-5 bg-orange-500 hover:bg-orange-600 active:scale-95 transition-transform text-base"
-          >
-            <span className="font-semibold">Hard</span>
-            {showSchedule && <span className="text-xs opacity-80">{showSchedule.hard}d</span>}
-          </Button>
-
-          <Button
-            onClick={() => handleRate(3)}
-            className="flex flex-col min-h-12 min-w-[72px] h-auto py-3 px-5 bg-green-500 hover:bg-green-600 active:scale-95 transition-transform text-base"
-          >
-            <span className="font-semibold">Good</span>
-            {showSchedule && <span className="text-xs opacity-80">{showSchedule.good}d</span>}
-          </Button>
-
-          <Button
-            onClick={() => handleRate(4)}
-            className="flex flex-col min-h-12 min-w-[72px] h-auto py-3 px-5 bg-blue-500 hover:bg-blue-600 active:scale-95 transition-transform text-base"
-          >
-            <span className="font-semibold">Easy</span>
-            {showSchedule && <span className="text-xs opacity-80">{showSchedule.easy}d</span>}
-          </Button>
-        </div>
+        <RatingBar onRate={handleRate} showSchedule={showSchedule} />
       )}
     </div>
   );

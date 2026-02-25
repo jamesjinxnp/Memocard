@@ -77,6 +77,9 @@ export const studyApi = {
     getProgress: () => api.get('/study/stats/progress'),
 
     getAnalytics: () => api.get('/study/analytics'),
+
+    getUpcomingReviews: (page = 1, limit = 20) =>
+        api.get(`/study/upcoming?page=${page}&limit=${limit}`),
 };
 
 // ==================== VOCABULARY API ====================

@@ -9,6 +9,7 @@ import DeckPage from './pages/DeckPage';
 import Settings from './pages/Settings';
 import AnalyticsPage from './pages/AnalyticsPage';
 import LearningPath from './pages/LearningPath';
+import UpcomingReviews from './pages/UpcomingReviews';
 
 import './App.css';
 
@@ -92,6 +93,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Study />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/upcoming"
+            element={
+              <ProtectedRoute>
+                <UpcomingReviews />
               </ProtectedRoute>
             }
           />

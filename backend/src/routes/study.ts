@@ -917,6 +917,72 @@ const study = new Elysia({ prefix: '/study' })
                 ),
             },
         };
+    })
+
+    // ==================== GET UPCOMING REVIEWS (Paginated) ====================
+    .get('/upcoming', async ({ user, set, query }) => {
+        if (!user) {
+            set.status = 401;
+            return { error: 'Unauthorized' };
+        }
+
+        const page = Math.max(1, parseInt(query.page || '1'));
+        const limit = Math.min(50, Math.max(10, parseInt(query.limit || '20')));
+        const offset = (page - 1) * limit;
+
+        // Count total learned cards (state > 0: Learning, Review, Relearning)
+        const totalResult = await db
+            .select({ count: sql<number>`COUNT(*)` })
+            .from(cards)
+            .where(and(
+                eq(cards.userId, user.userId),
+                sql`${cards.state} > 0`
+            ));
+
+        const total = totalResult[0]?.count || 0;
+        const totalPages = Math.ceil(total / limit);
+
+        // Fetch paginated cards with vocabulary data, ordered by due date
+        const upcomingCards = await db
+            .select({
+                card: cards,
+                vocab: vocabulary,
+            })
+            .from(cards)
+            .innerJoin(vocabulary, eq(cards.vocabularyId, vocabulary.id))
+            .where(and(
+                eq(cards.userId, user.userId),
+                sql`${cards.state} > 0`
+            ))
+            .orderBy(asc(cards.due))
+            .limit(limit)
+            .offset(offset);
+
+        return {
+            cards: upcomingCards.map(({ card, vocab }) => ({
+                id: card.id,
+                vocabulary: {
+                    id: vocab.id,
+                    word: vocab.word,
+                    defTh: vocab.defTh,
+                    defEn: vocab.defEn,
+                    type: vocab.type,
+                },
+                due: card.due instanceof Date ? card.due.toISOString() : new Date(card.due as any * 1000).toISOString(),
+                state: card.state,
+            })),
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
+            },
+        };
+    }, {
+        query: t.Object({
+            page: t.Optional(t.String()),
+            limit: t.Optional(t.String()),
+        })
     });
 
 // Helper functions for analytics

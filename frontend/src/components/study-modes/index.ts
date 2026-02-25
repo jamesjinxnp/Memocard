@@ -5,3 +5,6 @@ export { default as MultipleChoiceMode } from './MultipleChoiceMode';
 export { default as ClozeMode } from './ClozeMode';
 export { default as SpellingBeeMode } from './SpellingBeeMode';
 export { default as AudioChoiceMode } from './AudioChoiceMode';
+export { default as StudyCard, getModeAccent, getModeIcon } from './StudyCard';
+export { default as RatingBar } from './RatingBar';
+export { default as ModeProgressRail } from './ModeProgressRail';

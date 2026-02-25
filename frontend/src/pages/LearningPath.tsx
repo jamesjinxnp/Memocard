@@ -47,6 +47,7 @@ interface PathResponse {
         totalLevels: number;
         totalUnits: number;
         totalNodes: number;
+        totalVocab: number;
     };
 }
 
@@ -200,7 +201,7 @@ export default function LearningPath() {
                             {pathData.deckId.replace('-', ' ')}
                         </h1>
                         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] text-sm text-[var(--color-text-secondary)]">
-                            <span className="text-primary font-bold">{pathData.stats.totalNodes}</span>
+                            <span className="text-primary font-bold">{pathData.stats.totalVocab}</span>
                             <span>vocabulary words</span>
                         </div>
                     </div>
@@ -368,6 +369,7 @@ export default function LearningPath() {
                                                         >
                                                             <NodeButton
                                                                 node={item.node}
+                                                                unitOrder={item.unitIndex}
                                                                 status={progress.status}
                                                                 stars={progress.stars}
                                                                 crowns={progress.crowns}

@@ -155,7 +155,7 @@ export default function Dashboard() {
                         <h3 className="font-semibold text-lg font-display text-[var(--color-text-primary)]">
                           {deck.name}
                         </h3>
-                        <p className="text-sm text-[var(--color-text-secondary)] mt-1 line-clamp-2">
+                        <p className="text-sm text-[var(--color-text-secondary)] mt-1 line-clamp-2 min-h-[2.5rem]">
                           {deck.description}
                         </p>
                       </div>

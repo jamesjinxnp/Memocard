@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { speakWord } from '../../services/audio';
+import RatingBar from './RatingBar';
 
 interface Vocabulary {
   id: number;
@@ -39,11 +40,10 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     const userAnswer = normalizeText(input);
     const correctAnswer = normalizeText(vocabulary.word);
     const correct = userAnswer === correctAnswer;
-    const elapsed = (Date.now() - startTime) / 1000; // seconds
+    const elapsed = (Date.now() - startTime) / 1000;
 
     setIsCorrect(correct);
     setShowResult(true);
@@ -61,13 +61,12 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
     setShowResult(false);
   };
 
-  // Time-based rating: Again (wrong or >45s), Hard (20-45s), Good (8-20s), Easy (<8s)
   const getSuggestedRating = () => {
-    if (!isCorrect) return 1; // Again - wrong answer
-    if (responseTime > 45) return 1; // Again - took too long
-    if (responseTime > 20) return 2; // Hard
-    if (responseTime > 8) return 3; // Good
-    return 4; // Easy - fast response
+    if (!isCorrect) return 1;
+    if (responseTime > 45) return 1;
+    if (responseTime > 20) return 2;
+    if (responseTime > 8) return 3;
+    return 4;
   };
 
   // Live timer
@@ -81,119 +80,138 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
   }, [startTime, showResult]);
 
   const getTimerColor = () => {
-    if (liveTime < 8) return '#22c55e'; // Easy - green
-    if (liveTime < 20) return '#eab308'; // Good - yellow
-    if (liveTime < 45) return '#f97316'; // Hard - orange
-    return '#ef4444'; // Again - red
+    if (liveTime < 8) return 'text-emerald-400';
+    if (liveTime < 20) return 'text-yellow-400';
+    if (liveTime < 45) return 'text-orange-400';
+    return 'text-red-400';
+  };
+
+  const getTimerBarColor = () => {
+    if (liveTime < 8) return 'bg-emerald-500';
+    if (liveTime < 20) return 'bg-yellow-500';
+    if (liveTime < 45) return 'bg-orange-500';
+    return 'bg-red-500';
   };
 
   return (
-    <div className="typing-mode">
+    <div className="flex flex-col items-center gap-5 w-full max-w-lg mx-auto px-2">
       {/* Live Timer Bar */}
       {!showResult && (
-        <div className="live-timer-container">
-          <div className="live-timer-track">
-            <div className="live-timer-bar" style={{
-              width: `${Math.min((liveTime / 45) * 100, 100)}%`,
-              background: getTimerColor()
-            }} />
+        <div className="w-full flex items-center gap-3 bg-[var(--color-bg-surface)]/40 backdrop-blur-xl rounded-2xl px-4 py-2.5 border border-white/5">
+          <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-100 ${getTimerBarColor()}`}
+              style={{ width: `${Math.min((liveTime / 45) * 100, 100)}%` }}
+            />
           </div>
-          <span className="live-timer-text" style={{ color: getTimerColor() }}>
+          <span className={`text-sm font-semibold tabular-nums min-w-[40px] text-right ${getTimerColor()}`}>
             {Math.floor(liveTime)}s
           </span>
         </div>
       )}
 
-      {/* Definition Display */}
-      <div className="definition-card">
+      {/* Definition Card — Glassmorphism with blue accent */}
+      <div className="w-full rounded-3xl p-5 md:p-6 text-center
+        bg-[var(--color-bg-surface)]/60 backdrop-blur-2xl
+        border border-blue-500/20
+        shadow-[0_0_40px_rgba(59,130,246,0.15)]">
+
         {vocabulary.type && (
-          <span className="type-badge">{vocabulary.type}</span>
+          <span className="inline-block px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/30 text-sm font-medium text-blue-400 mb-3">
+            {vocabulary.type}
+          </span>
         )}
 
         {vocabulary.defEn && (
-          <p className="def-en">{vocabulary.defEn}</p>
+          <p className="text-lg md:text-xl text-[var(--color-text-primary)] mb-2">
+            {vocabulary.defEn}
+          </p>
         )}
 
         {vocabulary.defTh && (
-          <p className="def-th">{vocabulary.defTh}</p>
+          <p className="text-base md:text-lg font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            {vocabulary.defTh}
+          </p>
         )}
       </div>
 
       {/* Input Form */}
       {!showResult ? (
-        <form onSubmit={handleSubmit} className="input-form">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-3">
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="พิมพ์คำศัพท์ที่ถูกต้อง..."
-            className="word-input"
+            className="w-full px-4 py-3.5 text-lg text-center rounded-2xl
+              bg-[var(--color-bg-surface)]/40 backdrop-blur-xl
+              border border-white/10 focus:border-blue-500/50
+              text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]
+              outline-none transition-all duration-200
+              focus:shadow-[0_0_20px_rgba(59,130,246,0.15)]"
             autoComplete="off"
             autoCapitalize="off"
             spellCheck="false"
           />
-          <button type="submit" className="submit-btn" disabled={!input.trim()}>
+          <button
+            type="submit"
+            disabled={!input.trim()}
+            className="w-full py-3.5 rounded-2xl text-base font-semibold text-white
+              bg-gradient-to-r from-blue-600 to-indigo-700
+              hover:from-blue-500 hover:to-indigo-600
+              disabled:opacity-40 disabled:cursor-not-allowed
+              transition-all duration-200 active:scale-[0.98]"
+          >
             ตรวจคำตอบ
           </button>
         </form>
       ) : (
-        /* Result Display */
-        <div className={`result ${isCorrect ? 'correct' : 'incorrect'}`}>
-          <div className="result-icon">
-            {isCorrect ? '✅' : '❌'}
-          </div>
+        /* Result Card — Glassmorphism */
+        <div className={`w-full rounded-3xl p-5 md:p-6 text-center
+          bg-[var(--color-bg-surface)]/60 backdrop-blur-2xl border
+          ${isCorrect
+            ? 'border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.15)]'
+            : 'border-red-500/30 shadow-[0_0_40px_rgba(239,68,68,0.15)]'
+          }
+          animate-in fade-in slide-in-from-bottom-2 duration-300`}
+        >
+          <div className="text-4xl mb-3">{isCorrect ? '✅' : '❌'}</div>
 
-          <h2 className="correct-word">{vocabulary.word}</h2>
+          <h2 className={`text-2xl font-bold font-display mb-1 ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>
+            {vocabulary.word}
+          </h2>
 
           {vocabulary.ipaUs && (
-            <p className="ipa">/{vocabulary.ipaUs}/</p>
+            <p className="text-base opacity-60 font-serif mb-3 text-[var(--color-text-secondary)]">
+              /{vocabulary.ipaUs}/
+            </p>
           )}
 
           {!isCorrect && (
-            <p className="your-answer">
-              คำตอบของคุณ: <span className="wrong">{input}</span>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-3">
+              คำตอบของคุณ: <span className="line-through text-red-400">{input}</span>
             </p>
           )}
 
           <button
-            className="speak-btn"
+            className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm
+              text-[var(--color-text-secondary)] hover:bg-white/10 transition-colors mb-4"
             onClick={() => speakWord(vocabulary.word)}
           >
             🔊 ฟังเสียง
           </button>
 
-          {/* Rating Buttons */}
-          <div className="rating-buttons">
-            <button
-              className={`rating-btn again ${getSuggestedRating() === 1 ? 'suggested' : ''}`}
-              onClick={() => handleRate(1)}
-            >
-              Again
-            </button>
-            <button
-              className={`rating-btn hard ${getSuggestedRating() === 2 ? 'suggested' : ''}`}
-              onClick={() => handleRate(2)}
-            >
-              Hard
-            </button>
-            <button
-              className={`rating-btn good ${getSuggestedRating() === 3 ? 'suggested' : ''}`}
-              onClick={() => handleRate(3)}
-            >
-              Good
-            </button>
-            <button
-              className={`rating-btn easy ${getSuggestedRating() === 4 ? 'suggested' : ''}`}
-              onClick={() => handleRate(4)}
-            >
-              Easy
-            </button>
-          </div>
+          <p className="text-xs text-[var(--color-text-muted)] mb-4">
+            แนะนำ: {['', 'Again', 'Hard', 'Good', 'Easy'][getSuggestedRating()]}
+          </p>
+
+          <RatingBar onRate={handleRate} />
 
           {!isCorrect && (
             <button
-              className="try-again-btn"
+              className="mt-4 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm
+                text-[var(--color-text-secondary)] hover:bg-white/10 transition-colors"
               onClick={() => {
                 setShowResult(false);
                 setInput('');
@@ -205,230 +223,6 @@ export default function TypingMode({ vocabulary, onRate }: TypingModeProps) {
           )}
         </div>
       )}
-
-      <style>{`
-        .typing-mode {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2rem;
-          padding: 2rem;
-          max-width: 500px;
-          margin: 0 auto;
-        }
-
-        .live-timer-container {
-          width: 100%;
-          background: #1e293b;
-          border-radius: 12px;
-          padding: 0.5rem 1rem;
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .live-timer-track {
-          flex: 1;
-          height: 8px;
-          background: #334155;
-          border-radius: 4px;
-          overflow: hidden;
-        }
-
-        .live-timer-bar {
-          height: 100%;
-          border-radius: 4px;
-          transition: width 0.1s linear, background 0.3s;
-        }
-
-        .live-timer-text {
-          font-size: 0.9rem;
-          font-weight: 600;
-          white-space: nowrap;
-          min-width: 50px;
-          text-align: right;
-        }
-
-        .definition-card {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 2rem;
-          border-radius: 16px;
-          text-align: center;
-          width: 100%;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        }
-
-        .type-badge {
-          background: rgba(255,255,255,0.2);
-          padding: 0.25rem 0.75rem;
-          border-radius: 20px;
-          font-size: 0.85rem;
-          display: inline-block;
-          margin-bottom: 1rem;
-        }
-
-        .def-en {
-          font-size: 1.2rem;
-          margin-bottom: 0.5rem;
-        }
-
-        .def-th {
-          font-size: 1rem;
-          opacity: 0.9;
-        }
-
-        .input-form {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .word-input {
-          width: 100%;
-          padding: 1rem;
-          font-size: 1.25rem;
-          border: 2px solid #e2e8f0;
-          border-radius: 12px;
-          text-align: center;
-          transition: border-color 0.2s;
-          background: white;
-          color: #1e293b;
-        }
-
-        .word-input:focus {
-          outline: none;
-          border-color: #667eea;
-        }
-
-        .submit-btn {
-          padding: 1rem;
-          font-size: 1rem;
-          font-weight: 600;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          transition: transform 0.2s, opacity 0.2s;
-        }
-
-        .submit-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        .submit-btn:not(:disabled):hover {
-          transform: translateY(-2px);
-        }
-
-        .result {
-          text-align: center;
-          padding: 2rem;
-          border-radius: 16px;
-          width: 100%;
-        }
-
-        .result.correct {
-          background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-          color: white;
-        }
-
-        .result.incorrect {
-          background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-          color: white;
-        }
-
-        .result-icon {
-          font-size: 3rem;
-          margin-bottom: 1rem;
-        }
-
-        .correct-word {
-          font-size: 2rem;
-          font-weight: 700;
-          margin-bottom: 0.5rem;
-        }
-
-        .ipa {
-          font-size: 1.1rem;
-          opacity: 0.9;
-          font-family: serif;
-        }
-
-        .your-answer {
-          margin-top: 1rem;
-          font-size: 0.9rem;
-        }
-
-        .wrong {
-          text-decoration: line-through;
-          opacity: 0.8;
-        }
-
-        .speak-btn {
-          margin-top: 1rem;
-          padding: 0.5rem 1rem;
-          background: rgba(255,255,255,0.2);
-          border: none;
-          border-radius: 8px;
-          color: white;
-          cursor: pointer;
-          font-size: 1rem;
-        }
-
-        .rating-buttons {
-          display: flex;
-          gap: 0.75rem;
-          margin-top: 1.5rem;
-          flex-wrap: wrap;
-          justify-content: center;
-        }
-
-        .rating-btn {
-          padding: 0.75rem 1.25rem;
-          min-height: 48px;
-          min-width: 72px;
-          border: 2px solid rgba(255,255,255,0.3);
-          background: rgba(255,255,255,0.1);
-          color: white;
-          border-radius: 8px;
-          cursor: pointer;
-          font-weight: 600;
-          font-size: 1rem;
-          transition: all 0.2s;
-        }
-
-        .rating-btn.suggested {
-          background: rgba(255,255,255,0.3);
-          border-color: white;
-          transform: scale(1.05);
-        }
-
-        .rating-btn:hover {
-          background: rgba(255,255,255,0.2);
-        }
-
-        .rating-btn:active {
-          transform: scale(0.95);
-        }
-
-        .try-again-btn {
-          margin-top: 1rem;
-          padding: 0.75rem 1.5rem;
-          background: rgba(255,255,255,0.2);
-          border: none;
-          border-radius: 8px;
-          color: white;
-          cursor: pointer;
-          font-size: 1rem;
-        }
-
-        .try-again-btn:hover {
-          background: rgba(255,255,255,0.3);
-        }
-      `}</style>
     </div>
   );
 }

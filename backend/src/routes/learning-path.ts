@@ -126,6 +126,10 @@ const learningPath = new Elysia({ prefix: '/path' })
                     (sum, l) => sum + l.units.reduce((s, u) => s + u.nodes.length, 0),
                     0
                 ),
+                totalVocab: levelsData.reduce(
+                    (sum, l) => sum + l.units.reduce((s, u) => s + u.nodes.reduce((ns, n) => ns + n.nodeVocabulary.length, 0), 0),
+                    0
+                ),
             },
         };
 

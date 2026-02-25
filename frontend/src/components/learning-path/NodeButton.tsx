@@ -16,13 +16,14 @@ interface NodeButtonProps {
         order: number;
         vocabCount: number;
     };
+    unitOrder: number;
     status: 'locked' | 'available' | 'completed';
     stars: number;
     crowns: number;
     onClick: () => void;
 }
 
-export const NodeButton = memo(function NodeButton({ node, status, stars, crowns, onClick }: NodeButtonProps) {
+export const NodeButton = memo(function NodeButton({ node, unitOrder, status, stars, crowns, onClick }: NodeButtonProps) {
 
     // 1. Determine Icon based on type & status
     const getIcon = () => {
@@ -110,7 +111,7 @@ export const NodeButton = memo(function NodeButton({ node, status, stars, crowns
                     </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" className="flex flex-col items-center gap-1 bg-[var(--color-bg-surface)] border-[var(--color-border-default)]">
-                    <p className="font-bold font-display capitalize">{node.type} {node.order + 1}</p>
+                    <p className="font-bold font-display capitalize">Unit {unitOrder + 1} · {node.type} {node.order + 1}</p>
                     <p className="text-xs text-muted-foreground">{node.vocabCount} Words</p>
                     {status === 'locked' && <p className="text-xs text-accent-rose uppercase font-bold tracking-wider">Locked</p>}
                     {status === 'available' && <p className="text-xs text-accent-teal uppercase font-bold tracking-wider animate-pulse">Start Lesson</p>}
